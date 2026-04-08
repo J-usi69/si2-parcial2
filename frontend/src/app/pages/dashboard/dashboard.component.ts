@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
-import { Incident, Workshop } from '../../models/interfaces';
+import { Incident, Workshop, Review } from '../../models/interfaces';
 
 @Component({
   selector: 'app-dashboard',
@@ -254,6 +254,39 @@ import { Incident, Workshop } from '../../models/interfaces';
                 <p>Sin actividad reciente</p>
               </div>
             </ng-template>
+          </div>
+        </div>
+
+        <!-- Reviews section -->
+        <div class="card reviews-card" *ngIf="workshop && reviews.length > 0">
+          <div class="card-header">
+            <h3>
+              <span class="material-symbols-rounded">reviews</span>
+              Reseñas de clientes
+            </h3>
+            <span class="reviews-avg">
+              <span class="material-symbols-rounded star-icon">star</span>
+              {{ (workshop?.rating || 0) | number: '1.1-1' }}
+              <small>({{ reviews.length }})</small>
+            </span>
+          </div>
+          <div class="review-list">
+            <div class="review-item" *ngFor="let r of reviews">
+              <div class="review-header">
+                <div class="review-avatar">{{ r.user_name.charAt(0) || '?' }}</div>
+                <div class="review-meta">
+                  <span class="review-name">{{ r.user_name }}</span>
+                  <span class="review-date">{{ r.created_at | date: 'mediumDate' }}</span>
+                </div>
+                <div class="review-stars">
+                  <span *ngFor="let s of [1,2,3,4,5]" class="material-symbols-rounded"
+                    [class.filled]="s <= r.rating">
+                    {{ s <= r.rating ? 'star' : 'star_border' }}
+                  </span>
+                </div>
+              </div>
+              <p class="review-comment" *ngIf="r.comment">{{ r.comment }}</p>
+            </div>
           </div>
         </div>
     </div>
@@ -745,6 +778,41 @@ import { Incident, Workshop } from '../../models/interfaces';
       @media (max-width: 900px) {
         .stats-grid { grid-template-columns: repeat(2, 1fr); }
       }
+
+      /* Reviews */
+      .reviews-card { margin-top: var(--space-xl); }
+      .reviews-avg {
+        display: flex; align-items: center; gap: 4px;
+        font-weight: 700; font-size: 16px; color: var(--color-text-primary);
+        small { font-weight: 400; font-size: 13px; color: var(--color-text-tertiary); }
+      }
+      .star-icon { font-size: 20px; color: #f59e0b; }
+      .review-list { display: flex; flex-direction: column; gap: var(--space-md); }
+      .review-item {
+        padding: var(--space-md);
+        background: var(--color-surface-alt);
+        border-radius: var(--radius-lg);
+      }
+      .review-header { display: flex; align-items: center; gap: var(--space-sm); }
+      .review-avatar {
+        width: 36px; height: 36px; border-radius: 50%;
+        background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+        color: white; display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 14px; flex-shrink: 0;
+      }
+      .review-meta { flex: 1; display: flex; flex-direction: column; }
+      .review-name { font-weight: 600; font-size: 14px; color: var(--color-text-primary); }
+      .review-date { font-size: 12px; color: var(--color-text-tertiary); }
+      .review-stars {
+        display: flex; gap: 1px;
+        .material-symbols-rounded {
+          font-size: 16px; color: #d1d5db;
+          &.filled { color: #f59e0b; }
+        }
+      }
+      .review-comment {
+        margin-top: var(--space-sm); font-size: 14px; color: var(--color-text-secondary); line-height: 1.5;
+      }
     `,
   ],
 })
@@ -761,6 +829,7 @@ export class DashboardComponent implements OnInit {
   weeklyBars: { day: string; pct: number; color: string }[] = [];
   categoryStats: { key: string; label: string; count: number; pct: number }[] = [];
   timelineItems: { type: string; text: string; time: string }[] = [];
+  reviews: Review[] = [];
 
   constructor(
     private api: ApiService,
@@ -811,6 +880,14 @@ export class DashboardComponent implements OnInit {
         this.error = true;
         this.cdr.markForCheck();
       },
+    });
+
+    this.api.getMyReviews().subscribe({
+      next: (reviews) => {
+        this.reviews = reviews;
+        this.cdr.markForCheck();
+      },
+      error: () => {},
     });
   }
 

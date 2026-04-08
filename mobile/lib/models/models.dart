@@ -211,3 +211,66 @@ class AppNotification {
         createdAt: json['created_at'],
       );
 }
+
+class ChatMessage {
+  final int id;
+  final int incidentId;
+  final int senderId;
+  final String senderName;
+  final String senderRole;
+  final String message;
+  final String createdAt;
+
+  ChatMessage({
+    required this.id,
+    required this.incidentId,
+    required this.senderId,
+    required this.senderName,
+    required this.senderRole,
+    required this.message,
+    required this.createdAt,
+  });
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
+    id: json['id'],
+    incidentId: json['incident_id'],
+    senderId: json['sender_id'],
+    senderName: json['sender_name'],
+    senderRole: json['sender_role'],
+    message: json['message'],
+    createdAt: json['created_at'],
+  );
+}
+
+class Review {
+  final int id;
+  final int incidentId;
+  final int userId;
+  final int workshopId;
+  final int rating;
+  final String? comment;
+  final String createdAt;
+  final String? userName;
+
+  Review({
+    required this.id,
+    required this.incidentId,
+    required this.userId,
+    required this.workshopId,
+    required this.rating,
+    this.comment,
+    required this.createdAt,
+    this.userName,
+  });
+
+  factory Review.fromJson(Map<String, dynamic> json) => Review(
+    id: json['id'],
+    incidentId: json['incident_id'],
+    userId: json['user_id'],
+    workshopId: json['workshop_id'],
+    rating: json['rating'],
+    comment: json['comment'],
+    createdAt: json['created_at'],
+    userName: json['user_name'],
+  );
+}

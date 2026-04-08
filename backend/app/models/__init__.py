@@ -1,4 +1,6 @@
+from app.models.chat import ChatMessage
 from app.models.evidence import Evidence, EvidenceType
+from app.models.review import Review
 from app.models.incident import Incident, IncidentCategory, IncidentPriority, IncidentStatus
 from app.models.notification import Notification, NotificationType
 from app.models.payment import Payment, PaymentStatus
@@ -16,4 +18,6 @@ __all__ = [
     "StatusHistory",
     "Payment", "PaymentStatus",
     "Notification", "NotificationType",
+    "ChatMessage",
+    "Review",
 ]

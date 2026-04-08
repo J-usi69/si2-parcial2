@@ -131,3 +131,24 @@ export interface AssignmentCandidate {
   technician_id: number;
   technician_name: string;
 }
+
+export interface ChatMessage {
+  id: number;
+  incident_id: number;
+  sender_id: number;
+  sender_name: string;
+  sender_role: 'client' | 'workshop' | 'admin';
+  message: string;
+  created_at: string;
+}
+
+export interface Review {
+  id: number;
+  incident_id: number;
+  user_id: number;
+  workshop_id: number;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  user_name: string;
+}

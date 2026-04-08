@@ -1,9 +1,12 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewChecked, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../../services/api.service';
-import { Incident, Technician } from '../../models/interfaces';
+import { WebSocketService } from '../../services/websocket.service';
+import { AuthService } from '../../services/auth.service';
+import { Incident, Technician, ChatMessage } from '../../models/interfaces';
 
 @Component({
   selector: 'app-incident-detail',
@@ -88,6 +91,7 @@ import { Incident, Technician } from '../../models/interfaces';
                     'Lat: ' + incident.latitude + ', Lng: ' + incident.longitude
                 }}
               </p>
+              <div id="incident-map" class="incident-map"></div>
             </div>
 
             <!-- User description -->
@@ -169,6 +173,48 @@ import { Incident, Technician } from '../../models/interfaces';
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- Chat -->
+            <div class="card card-padded" *ngIf="incident.status !== 'pending' && incident.status !== 'cancelled'">
+              <div class="card-section-header">
+                <span class="material-symbols-rounded">chat</span>
+                <h3>Chat con el cliente</h3>
+              </div>
+
+              <div class="chat-container" #chatContainer>
+                <div class="chat-empty" *ngIf="chatMessages.length === 0">
+                  <span class="material-symbols-rounded">forum</span>
+                  <p>No hay mensajes aun. Inicia la conversacion.</p>
+                </div>
+
+                <div
+                  *ngFor="let msg of chatMessages"
+                  class="chat-bubble"
+                  [class.mine]="msg.sender_id === currentUserId"
+                  [class.other]="msg.sender_id !== currentUserId"
+                >
+                  <div class="chat-sender" *ngIf="msg.sender_id !== currentUserId">
+                    {{ msg.sender_name }}
+                    <span class="chat-role">{{ msg.sender_role === 'client' ? 'Cliente' : 'Taller' }}</span>
+                  </div>
+                  <div class="chat-text">{{ msg.message }}</div>
+                  <div class="chat-time">{{ msg.created_at | date: 'HH:mm' }}</div>
+                </div>
+              </div>
+
+              <div class="chat-input-row">
+                <input
+                  type="text"
+                  [(ngModel)]="chatInput"
+                  (keydown.enter)="sendMessage()"
+                  placeholder="Escribe un mensaje..."
+                  class="input chat-input"
+                />
+                <button class="btn btn-primary btn-icon" (click)="sendMessage()" [disabled]="!chatInput.trim()">
+                  <span class="material-symbols-rounded">send</span>
+                </button>
               </div>
             </div>
           </div>
@@ -448,6 +494,14 @@ import { Incident, Technician } from '../../models/interfaces';
         background: var(--color-surface-alt);
         padding: var(--space-md);
         border-radius: var(--radius-lg);
+      }
+
+      .incident-map {
+        height: 250px;
+        border-radius: var(--radius-lg);
+        margin-top: var(--space-md);
+        overflow: hidden;
+        z-index: 0;
       }
 
       .quote {
@@ -744,29 +798,222 @@ import { Incident, Technician } from '../../models/interfaces';
           grid-template-columns: 1fr;
         }
       }
+
+      /* Chat */
+      .chat-container {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: var(--space-md);
+        background: var(--color-surface-alt);
+        border-radius: var(--radius-lg);
+        margin-bottom: var(--space-md);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-sm);
+      }
+
+      .chat-empty {
+        text-align: center;
+        padding: var(--space-xl) 0;
+        color: var(--color-text-tertiary);
+
+        .material-symbols-rounded { font-size: 40px; display: block; margin: 0 auto 8px; }
+        p { font-size: 13px; }
+      }
+
+      .chat-bubble {
+        max-width: 75%;
+        padding: 10px 14px;
+        border-radius: 16px;
+        font-size: 13px;
+        line-height: 1.5;
+        word-break: break-word;
+      }
+
+      .chat-bubble.mine {
+        align-self: flex-end;
+        background: var(--color-primary);
+        color: #fff;
+        border-bottom-right-radius: 4px;
+      }
+
+      .chat-bubble.other {
+        align-self: flex-start;
+        background: var(--color-surface);
+        color: var(--color-text-primary);
+        border: 1px solid var(--color-divider);
+        border-bottom-left-radius: 4px;
+      }
+
+      .chat-sender {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--color-primary);
+        margin-bottom: 2px;
+      }
+
+      .chat-role {
+        font-weight: 400;
+        color: var(--color-text-tertiary);
+        margin-left: 4px;
+      }
+
+      .chat-text { margin: 0; }
+
+      .chat-time {
+        font-size: 10px;
+        margin-top: 4px;
+        opacity: 0.7;
+        text-align: right;
+      }
+
+      .chat-input-row {
+        display: flex;
+        gap: var(--space-sm);
+        align-items: center;
+      }
+
+      .chat-input {
+        flex: 1;
+      }
+
+      .btn-icon {
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-lg);
+        flex-shrink: 0;
+
+        .material-symbols-rounded { font-size: 20px; }
+      }
     `,
   ],
 })
-export class IncidentDetailComponent implements OnInit {
+export class IncidentDetailComponent implements OnInit, OnDestroy, AfterViewChecked {
   incident: Incident | null = null;
   technicians: Technician[] = [];
   selectedTechnician: number | null = null;
   finalCost = 0;
+
+  // Chat
+  chatMessages: ChatMessage[] = [];
+  chatInput = '';
+  currentUserId = 0;
+  private wsSub?: Subscription;
+  @ViewChild('chatContainer') chatContainer?: ElementRef;
+
+  // Map
+  private map?: google.maps.Map;
+  private mapInitialized = false;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private api: ApiService,
     private cdr: ChangeDetectorRef,
+    private ws: WebSocketService,
+    private auth: AuthService,
   ) {}
 
+  ngAfterViewChecked() {
+    if (this.incident && !this.mapInitialized) {
+      this.initMap();
+    }
+  }
+
+  private initMap() {
+    const el = document.getElementById('incident-map');
+    if (!el || this.mapInitialized) return;
+    this.mapInitialized = true;
+    const lat = this.incident!.latitude;
+    const lng = this.incident!.longitude;
+    const pos = { lat, lng };
+    this.map = new google.maps.Map(el, {
+      center: pos,
+      zoom: 15,
+      disableDefaultUI: true,
+      zoomControl: true,
+      mapId: 'incident-map',
+    });
+    new google.maps.marker.AdvancedMarkerElement({
+      map: this.map,
+      position: pos,
+      title: `Incidente #${this.incident!.id}`,
+    });
+  }
+
   ngOnInit() {
+    const user = this.auth.getCurrentUser();
+    if (user) this.currentUserId = user.id;
+
     const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.api.getIncident(id).subscribe((inc) => { this.incident = inc; this.cdr.markForCheck(); });
+    this.api.getIncident(id).subscribe((inc) => {
+      this.incident = inc;
+      this.cdr.markForCheck();
+      this.loadChat(inc.id);
+    });
     this.api.getTechnicians().subscribe({
       next: (t) => { this.technicians = t; this.cdr.markForCheck(); },
       error: () => { this.technicians = []; this.cdr.markForCheck(); },
     });
+
+    // Listen for incoming chat messages via WebSocket
+    this.wsSub = this.ws.notifications$.subscribe((msg: any) => {
+      if (msg.type === 'chat_message' && msg.incident_id === id && msg.sender_id !== this.currentUserId) {
+        this.chatMessages.push({
+          id: 0,
+          incident_id: msg.incident_id,
+          sender_id: msg.sender_id,
+          sender_name: msg.sender_name,
+          sender_role: msg.sender_role,
+          message: msg.message,
+          created_at: new Date().toISOString(),
+        });
+        this.cdr.markForCheck();
+        this.scrollChat();
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    this.wsSub?.unsubscribe();
+    this.map = undefined;
+    this.mapInitialized = false;
+  }
+
+  loadChat(incidentId: number) {
+    this.api.getChatMessages(incidentId).subscribe({
+      next: (msgs) => {
+        this.chatMessages = msgs;
+        this.cdr.markForCheck();
+        this.scrollChat();
+      },
+      error: () => {},
+    });
+  }
+
+  sendMessage() {
+    if (!this.incident || !this.chatInput.trim()) return;
+    const text = this.chatInput.trim();
+    this.chatInput = '';
+    this.api.sendChatMessage(this.incident.id, text).subscribe({
+      next: (msg) => {
+        this.chatMessages.push(msg);
+        this.cdr.markForCheck();
+        this.scrollChat();
+      },
+    });
+  }
+
+  private scrollChat() {
+    setTimeout(() => {
+      if (this.chatContainer) {
+        this.chatContainer.nativeElement.scrollTop = this.chatContainer.nativeElement.scrollHeight;
+      }
+    }, 50);
   }
 
   goBack() {

@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Incident, Notification, Payment, Technician, User, Workshop } from '../models/interfaces';
+import { Incident, Notification, Payment, Technician, User, Workshop, ChatMessage, Review } from '../models/interfaces';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -97,5 +97,19 @@ export class ApiService {
   // Payments
   getPayments(): Observable<Payment[]> {
     return this.http.get<Payment[]>(`${this.apiUrl}/payments/my-payments`);
+  }
+
+  // Chat
+  getChatMessages(incidentId: number): Observable<ChatMessage[]> {
+    return this.http.get<ChatMessage[]>(`${this.apiUrl}/chat/${incidentId}/messages`);
+  }
+
+  sendChatMessage(incidentId: number, message: string): Observable<ChatMessage> {
+    return this.http.post<ChatMessage>(`${this.apiUrl}/chat/${incidentId}/messages`, { message });
+  }
+
+  // Reviews
+  getMyReviews(): Observable<Review[]> {
+    return this.http.get<Review[]>(`${this.apiUrl}/reviews/my-reviews`);
   }
 }

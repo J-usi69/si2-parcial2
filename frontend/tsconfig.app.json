@@ -5,7 +5,7 @@
   "compilerOptions": {
     "outDir": "./out-tsc/app",
     "rootDir": "./src",
-    "types": []
+    "types": ["google.maps"]
   },
   "include": [
     "src/**/*.ts"

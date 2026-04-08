@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
@@ -7,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/status_chip.dart';
+import 'chat_screen.dart';
 
 class IncidentDetailScreen extends StatefulWidget {
   final int incidentId;
@@ -20,6 +22,7 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
   Incident? _incident;
   bool _loading = true;
   bool _paying = false;
+  Review? _review;
 
   @override
   void initState() {
@@ -32,6 +35,11 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
     try {
       final inc = await ApiService.getIncident(widget.incidentId);
       if (mounted) setState(() => _incident = inc);
+      // Load review if completed
+      if (inc.status == 'completed') {
+        final rev = await ApiService.getReviewForIncident(inc.id);
+        if (mounted) setState(() => _review = rev);
+      }
     } catch (_) {
       if (mounted) {
         AppSnackBar.error(context, 'Error al cargar incidente');
@@ -112,6 +120,8 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   _buildAICard(),
                   const SizedBox(height: AppSpacing.lg),
                   _buildInfoCard(),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildMapCard(),
                   if (_incident!.evidences.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.lg),
                     _buildEvidencesCard(),
@@ -119,6 +129,15 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   if (_incident!.finalCost != null) ...[
                     const SizedBox(height: AppSpacing.lg),
                     _buildPaymentCard(),
+                  ],
+                  if (_incident!.status == 'completed') ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildReviewCard(),
+                  ],
+                  if (_incident!.status != 'pending' &&
+                      _incident!.status != 'cancelled') ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildChatButton(),
                   ],
                   const SizedBox(height: AppSpacing.lg),
                 ],
@@ -343,6 +362,78 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
         ],
       ),
     ).animate(delay: 200.ms).fadeIn().moveY(begin: 16, end: 0);
+  }
+
+  Widget _buildMapCard() {
+    final inc = _incident!;
+    final pos = LatLng(inc.latitude, inc.longitude);
+    return Container(
+      decoration: BoxDecoration(
+        color: context.appColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            spreadRadius: 2,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.map_rounded,
+                    color: AppColors.warning,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Ubicación',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: context.appColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 200,
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(target: pos, zoom: 15),
+              markers: {
+                Marker(
+                  markerId: const MarkerId('incident'),
+                  position: pos,
+                  infoWindow: InfoWindow(
+                    title: 'Incidente #${inc.id}',
+                    snippet: inc.address ?? 'Ubicación del incidente',
+                  ),
+                ),
+              },
+              myLocationEnabled: false,
+              zoomControlsEnabled: false,
+              mapToolbarEnabled: false,
+              liteModeEnabled: true,
+            ),
+          ),
+        ],
+      ),
+    ).animate(delay: 250.ms).fadeIn().moveY(begin: 16, end: 0);
   }
 
   Widget _buildEvidencesCard() {
@@ -585,6 +676,359 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
         ],
       ),
     ).animate(delay: 400.ms).fadeIn().moveY(begin: 16, end: 0);
+  }
+
+  Widget _buildReviewCard() {
+    if (_review != null) {
+      // Show existing review
+      return Container(
+        decoration: BoxDecoration(
+          color: context.appColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.star_rounded,
+                    color: AppColors.warning,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Tu calificación',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: context.appColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: List.generate(
+                5,
+                (i) => Icon(
+                  i < _review!.rating
+                      ? Icons.star_rounded
+                      : Icons.star_border_rounded,
+                  color: AppColors.warning,
+                  size: 28,
+                ),
+              ),
+            ),
+            if (_review!.comment != null && _review!.comment!.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                _review!.comment!,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: context.appColors.textSecondary,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ).animate(delay: 450.ms).fadeIn().moveY(begin: 16, end: 0);
+    }
+
+    // Show "Rate" button
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppColors.warning, Color(0xFFF59E0B)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 20,
+            spreadRadius: 2,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: _showReviewDialog,
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.star_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Califica al taller',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        'Tu opinión ayuda a mejorar el servicio',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).animate(delay: 450.ms).fadeIn().moveY(begin: 16, end: 0);
+  }
+
+  void _showReviewDialog() {
+    int selectedRating = 0;
+    final commentCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.appColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: context.appColors.textTertiary.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                '¿Cómo fue el servicio?',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: context.appColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Califica al taller que atendió tu emergencia',
+                style: TextStyle(
+                  color: context.appColors.textTertiary,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  5,
+                  (i) => GestureDetector(
+                    onTap: () => setModalState(() => selectedRating = i + 1),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        i < selectedRating
+                            ? Icons.star_rounded
+                            : Icons.star_border_rounded,
+                        color: AppColors.warning,
+                        size: 44,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              TextField(
+                controller: commentCtrl,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Deja un comentario (opcional)',
+                  filled: true,
+                  fillColor: context.appColors.surfaceAlt,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: selectedRating == 0
+                      ? null
+                      : () async {
+                          try {
+                            final review = await ApiService.createReview(
+                              incidentId: _incident!.id,
+                              rating: selectedRating,
+                              comment: commentCtrl.text.isNotEmpty
+                                  ? commentCtrl.text
+                                  : null,
+                            );
+                            if (mounted) {
+                              setState(() => _review = review);
+                              Navigator.pop(ctx);
+                              AppSnackBar.success(
+                                context,
+                                '¡Gracias por tu calificación!',
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              Navigator.pop(ctx);
+                              AppSnackBar.error(
+                                context,
+                                e.toString().replaceAll('Exception: ', ''),
+                              );
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Enviar calificación',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: context.appColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            spreadRadius: 2,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatScreen(incidentId: _incident!.id),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.chat_rounded,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chat con el taller',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: context.appColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        'Envía mensajes al taller asignado',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.appColors.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: context.appColors.textTertiary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ).animate(delay: 350.ms).fadeIn().moveY(begin: 16, end: 0);
   }
 
   Future<void> _pay() async {

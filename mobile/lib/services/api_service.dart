@@ -336,4 +336,66 @@ class ApiService {
       throw Exception(jsonDecode(resp.body)['detail'] ?? 'Error en el pago');
     }
   }
+
+  // CHAT
+  static Future<List<ChatMessage>> getChatMessages(int incidentId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/chat/$incidentId/messages'),
+      headers: await _headers(),
+    );
+    if (resp.statusCode == 200) {
+      final list = jsonDecode(resp.body) as List;
+      return list.map((j) => ChatMessage.fromJson(j)).toList();
+    }
+    return [];
+  }
+
+  static Future<ChatMessage> sendChatMessage(
+    int incidentId,
+    String message,
+  ) async {
+    final resp = await http.post(
+      Uri.parse('$baseUrl/chat/$incidentId/messages'),
+      headers: await _headers(),
+      body: jsonEncode({'message': message}),
+    );
+    if (resp.statusCode == 200) {
+      return ChatMessage.fromJson(jsonDecode(resp.body));
+    }
+    throw Exception('Error al enviar mensaje');
+  }
+
+  // REVIEWS
+  static Future<Review> createReview({
+    required int incidentId,
+    required int rating,
+    String? comment,
+  }) async {
+    final resp = await http.post(
+      Uri.parse('$baseUrl/reviews/'),
+      headers: await _headers(),
+      body: jsonEncode({
+        'incident_id': incidentId,
+        'rating': rating,
+        'comment': comment,
+      }),
+    );
+    if (resp.statusCode == 201) {
+      return Review.fromJson(jsonDecode(resp.body));
+    }
+    throw Exception(
+      jsonDecode(resp.body)['detail'] ?? 'Error al enviar reseña',
+    );
+  }
+
+  static Future<Review?> getReviewForIncident(int incidentId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/reviews/incident/$incidentId'),
+      headers: await _headers(),
+    );
+    if (resp.statusCode == 200 && resp.body != 'null') {
+      return Review.fromJson(jsonDecode(resp.body));
+    }
+    return null;
+  }
 }

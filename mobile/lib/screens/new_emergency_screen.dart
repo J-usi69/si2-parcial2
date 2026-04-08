@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:record/record.dart';
@@ -663,6 +664,30 @@ class _NewEmergencyScreenState extends State<NewEmergencyScreen> {
                   ),
                 ),
               ],
+            ),
+          ).animate().fadeIn().moveY(begin: 12, end: 0),
+          const SizedBox(height: AppSpacing.md),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            child: SizedBox(
+              height: 180,
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: LatLng(_position!.latitude, _position!.longitude),
+                  zoom: 15,
+                ),
+                markers: {
+                  Marker(
+                    markerId: const MarkerId('me'),
+                    position: LatLng(_position!.latitude, _position!.longitude),
+                    infoWindow: const InfoWindow(title: 'Tu ubicación'),
+                  ),
+                },
+                myLocationEnabled: false,
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+                liteModeEnabled: true,
+              ),
             ),
           ).animate().fadeIn().moveY(begin: 12, end: 0),
         ],
