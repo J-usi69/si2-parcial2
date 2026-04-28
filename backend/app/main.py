@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine, get_db
-from app.routers import assignment, auth, chat, incidents, notifications, payments, reviews, technician, users, vehicles, workshops
+from app.routers import assignment, auth, chat, incidents, notifications, offers, payments, reviews, technician, users, vehicles, workshops
 from app.services.websocket_manager import manager
 from app.utils.security import get_current_user_from_token
 
@@ -36,6 +36,7 @@ app.include_router(workshops.router)
 app.include_router(technician.router)
 app.include_router(incidents.router)
 app.include_router(assignment.router)
+app.include_router(offers.router)
 app.include_router(payments.router)
 app.include_router(notifications.router)
 app.include_router(chat.router)

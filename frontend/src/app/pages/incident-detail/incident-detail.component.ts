@@ -6,7 +6,7 @@ import { Subscription } from 'rxjs';
 import { ApiService } from '../../services/api.service';
 import { WebSocketService } from '../../services/websocket.service';
 import { AuthService } from '../../services/auth.service';
-import { Incident, Technician, ChatMessage } from '../../models/interfaces';
+import { Incident, Technician, ChatMessage, ServiceOffer } from '../../models/interfaces';
 
 @Component({
   selector: 'app-incident-detail',
@@ -239,16 +239,42 @@ import { Incident, Technician, ChatMessage } from '../../models/interfaces';
               </div>
             </div>
 
-            <!-- Pending: accept/reject -->
+            <!-- Pending: offer/reject -->
             <div class="card card-padded" *ngIf="incident.status === 'pending'">
               <div class="card-section-header">
-                <span class="material-symbols-rounded">handshake</span>
-                <h3>Aceptar solicitud</h3>
+                <span class="material-symbols-rounded">local_offer</span>
+                <h3>{{ currentOffer ? 'Oferta enviada' : 'Enviar oferta' }}</h3>
               </div>
+
+              <div class="offer-sent" *ngIf="currentOffer; else offerFormTpl">
+                <div class="offer-sent-icon">
+                  <span class="material-symbols-rounded">check_circle</span>
+                </div>
+                <div class="offer-sent-title">Tu oferta ya fue enviada al cliente</div>
+                <div class="offer-sent-text">
+                  El cliente la vera en la app movil y podra aceptarla o compararla con otras ofertas.
+                </div>
+                <div class="offer-summary">
+                  <div>
+                    <span>Costo</span>
+                    <strong>Bs. {{ currentOffer.cost | number: '1.2-2' }}</strong>
+                  </div>
+                  <div>
+                    <span>ETA</span>
+                    <strong>{{ currentOffer.estimated_arrival }} min</strong>
+                  </div>
+                  <div *ngIf="currentOffer.technician_name">
+                    <span>Tecnico</span>
+                    <strong>{{ currentOffer.technician_name }}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <ng-template #offerFormTpl>
 
               <div class="field">
                 <label class="field-label">Asignar tecnico (opcional)</label>
-                <select [(ngModel)]="selectedTechnician" class="select">
+                <select [(ngModel)]="selectedTechnician" class="select" [disabled]="offerSubmitting">
                   <option [ngValue]="null">Sin asignar</option>
                   <option *ngFor="let t of technicians" [ngValue]="t.id">
                     {{ t.name }}
@@ -256,13 +282,36 @@ import { Incident, Technician, ChatMessage } from '../../models/interfaces';
                 </select>
               </div>
 
-              <button class="btn btn-success btn-block" (click)="acceptIncident()">
-                <span class="material-symbols-rounded">check</span>
-                Aceptar solicitud
+              <div class="field">
+                <label class="field-label">Costo ofertado (Bs.)</label>
+                <input type="number" class="input" [(ngModel)]="offerCost" min="1" [disabled]="offerSubmitting" />
+              </div>
+
+              <div class="field">
+                <label class="field-label">Tiempo estimado de llegada (min)</label>
+                <input type="number" class="input" [(ngModel)]="offerEta" min="1" [disabled]="offerSubmitting" />
+              </div>
+
+              <div class="field">
+                <label class="field-label">Mensaje para el cliente</label>
+                <textarea class="input" [(ngModel)]="offerMessage" rows="3" [disabled]="offerSubmitting"></textarea>
+              </div>
+
+              <div class="form-error" *ngIf="offerError">
+                <span class="material-symbols-rounded">error</span>
+                {{ offerError }}
+              </div>
+
+              <button class="btn btn-success btn-block" (click)="sendOffer()" [disabled]="offerSubmitting">
+                <span class="material-symbols-rounded">{{ offerSubmitting ? 'hourglass_top' : 'send' }}</span>
+                {{ offerSubmitting ? 'Enviando oferta...' : 'Enviar oferta al cliente' }}
               </button>
+              </ng-template>
+
               <button
                 class="btn btn-outline btn-block reject-btn"
                 (click)="rejectIncident()"
+                [disabled]="offerSubmitting || !!currentOffer"
               >
                 <span class="material-symbols-rounded">close</span>
                 Rechazar
@@ -288,20 +337,9 @@ import { Incident, Technician, ChatMessage } from '../../models/interfaces';
                 Iniciar servicio
               </button>
 
-              <div *ngIf="incident.status === 'in_progress'">
-                <div class="field">
-                  <label class="field-label">Costo final (Bs.)</label>
-                  <input
-                    type="number"
-                    [(ngModel)]="finalCost"
-                    placeholder="0.00"
-                    class="input"
-                  />
-                </div>
-                <button class="btn btn-success btn-block" (click)="completeService()">
-                  <span class="material-symbols-rounded">task_alt</span>
-                  Completar servicio
-                </button>
+              <div *ngIf="incident.status === 'in_progress'" class="payment-note">
+                <span class="material-symbols-rounded">info</span>
+                <p>El cierre y el pago los realiza el cliente desde la app movil. El monto queda fijado por la oferta aceptada.</p>
               </div>
             </div>
 
@@ -533,6 +571,65 @@ import { Incident, Technician, ChatMessage } from '../../models/interfaces';
         &:hover { background: var(--color-danger-light); border-color: var(--color-danger); }
       }
 
+      .offer-sent {
+        padding: var(--space-md);
+        border-radius: var(--radius-lg);
+        background: rgba(6, 167, 125, 0.08);
+        border: 1px solid rgba(6, 167, 125, 0.24);
+      }
+
+      .offer-sent-icon {
+        width: 2.5rem; height: 2.5rem; border-radius: var(--radius-lg);
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(6, 167, 125, 0.14); color: var(--color-success);
+        margin-bottom: var(--space-sm);
+      }
+
+      .offer-sent-title {
+        color: var(--color-text-primary); font-weight: 800; margin-bottom: 0.25rem;
+      }
+
+      .offer-sent-text {
+        color: var(--color-text-secondary); font-size: 0.8125rem; line-height: 1.5;
+      }
+
+      .offer-summary {
+        display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--space-xs); margin-top: var(--space-md);
+      }
+
+      .offer-summary div {
+        padding: var(--space-sm); border-radius: var(--radius-md);
+        background: var(--color-surface);
+        border: 1px solid var(--color-divider);
+      }
+
+      .offer-summary span {
+        display: block; color: var(--color-text-tertiary);
+        font-size: 0.625rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.08em; margin-bottom: 0.125rem;
+      }
+
+      .offer-summary strong {
+        color: var(--color-text-primary); font-size: 0.875rem;
+      }
+
+      .form-error {
+        display: flex; align-items: center; gap: var(--space-xs);
+        margin-bottom: var(--space-sm); padding: var(--space-sm);
+        border-radius: var(--radius-md); color: var(--color-danger);
+        background: var(--color-danger-light); font-size: 0.8125rem;
+        font-weight: 700;
+      }
+
+      .payment-note {
+        display: flex; gap: var(--space-sm); align-items: flex-start;
+        padding: var(--space-md); border-radius: var(--radius-md);
+        background: var(--color-surface-alt); color: var(--color-text-secondary);
+        .material-symbols-rounded { color: var(--color-primary); font-size: 1.25rem; }
+        p { margin: 0; line-height: 1.5; font-size: 0.875rem; }
+      }
+
       /* Cost card */
       .cost-card {
         background: var(--color-success); color: white;
@@ -650,7 +747,12 @@ export class IncidentDetailComponent implements OnInit, OnDestroy, AfterViewChec
   incident: Incident | null = null;
   technicians: Technician[] = [];
   selectedTechnician: number | null = null;
-  finalCost = 0;
+  offerCost = 120;
+  offerEta = 20;
+  offerMessage = 'Podemos atender tu emergencia con tecnico disponible.';
+  currentOffer: ServiceOffer | null = null;
+  offerSubmitting = false;
+  offerError = '';
 
   // Chat
   chatMessages: ChatMessage[] = [];
@@ -708,6 +810,9 @@ export class IncidentDetailComponent implements OnInit, OnDestroy, AfterViewChec
       this.incident = inc;
       this.cdr.markForCheck();
       this.loadChat(inc.id);
+      if (inc.status === 'pending') {
+        this.loadMyOffer(inc.id);
+      }
     });
     this.api.getTechnicians().subscribe({
       next: (t) => { this.technicians = t; this.cdr.markForCheck(); },
@@ -749,6 +854,19 @@ export class IncidentDetailComponent implements OnInit, OnDestroy, AfterViewChec
     });
   }
 
+  loadMyOffer(incidentId: number) {
+    this.api.getMyOffer(incidentId).subscribe({
+      next: (offer) => {
+        this.currentOffer = offer;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.currentOffer = null;
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
   sendMessage() {
     if (!this.incident || !this.chatInput.trim()) return;
     const text = this.chatInput.trim();
@@ -774,13 +892,32 @@ export class IncidentDetailComponent implements OnInit, OnDestroy, AfterViewChec
     this.router.navigate(['/incidents']);
   }
 
-  acceptIncident() {
+  sendOffer() {
     if (!this.incident) return;
+    this.offerSubmitting = true;
+    this.offerError = '';
+    this.cdr.markForCheck();
     this.api
-      .acceptIncident(this.incident.id, this.selectedTechnician || undefined)
-      .subscribe((inc) => {
-        this.incident = inc;
-        this.cdr.markForCheck();
+      .createOffer(this.incident.id, {
+        cost: this.offerCost,
+        estimated_arrival: this.offerEta,
+        technician_id: this.selectedTechnician,
+        message: this.offerMessage,
+      })
+      .subscribe({
+        next: (offer) => {
+          this.currentOffer = offer;
+          this.offerSubmitting = false;
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          this.offerSubmitting = false;
+          this.offerError = err?.error?.detail || 'No se pudo enviar la oferta';
+          if (this.offerError === 'Ya enviaste una oferta para este incidente') {
+            this.loadMyOffer(this.incident!.id);
+          }
+          this.cdr.markForCheck();
+        },
       });
   }
 
@@ -795,19 +932,6 @@ export class IncidentDetailComponent implements OnInit, OnDestroy, AfterViewChec
     if (!this.incident) return;
     this.api
       .updateIncident(this.incident.id, { status } as any)
-      .subscribe((inc) => {
-        this.incident = inc;
-        this.cdr.markForCheck();
-      });
-  }
-
-  completeService() {
-    if (!this.incident) return;
-    this.api
-      .updateIncident(this.incident.id, {
-        status: 'completed',
-        final_cost: this.finalCost,
-      } as any)
       .subscribe((inc) => {
         this.incident = inc;
         this.cdr.markForCheck();

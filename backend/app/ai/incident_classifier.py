@@ -17,7 +17,10 @@ async def classify_incident(evidences: list[dict]) -> dict:
 
     prompt = (
         "Eres un sistema de clasificacion de emergencias vehiculares para AsisteCar. "
-        "Analiza texto, transcripciones y analisis de imagenes. Responde solo JSON valido con: "
+        "Analiza texto, transcripciones y analisis de imagenes. Si la evidencia indica llanta desinflada, "
+        "pinchada, reventada, aplastada o problema de neumatico, usa categoria tire. "
+        "Si la evidencia indica auto que no enciende, bateria descargada o luces debiles, usa battery. "
+        "Si hay golpe, colision o carroceria danada, usa crash. Responde solo JSON valido con: "
         "categoria (battery/tire/crash/engine/keys/other/uncertain), "
         "prioridad (low/medium/high/critical), resumen, diagnostico_preliminar, "
         "servicios_requeridos (array), requiere_remolque (boolean), "
@@ -26,12 +29,12 @@ async def classify_incident(evidences: list[dict]) -> dict:
     )
     try:
         return generate_json(prompt)
-    except Exception as exc:
+    except Exception:
         return {
             "categoria": "uncertain",
             "prioridad": "medium",
-            "resumen": "No se pudo completar la clasificacion automatica.",
-            "diagnostico_preliminar": f"Pendiente de revision manual: {exc}",
+            "resumen": "La solicitud fue registrada y quedo pendiente de revision del taller.",
+            "diagnostico_preliminar": "El analisis automatico no esta disponible en este momento. Un taller debe revisar las evidencias y confirmar el diagnostico.",
             "servicios_requeridos": ["other"],
             "requiere_remolque": False,
             "costo_estimado_min": 0,

@@ -78,6 +78,32 @@ import { Technician } from '../../models/interfaces';
               </div>
             </div>
 
+            <div class="field">
+              <label>Correo electronico</label>
+              <div class="input-with-icon">
+                <span class="material-symbols-rounded">mail</span>
+                <input
+                  class="input"
+                  type="email"
+                  [(ngModel)]="newTech.email"
+                  placeholder="tecnico@email.com"
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>{{ editing ? 'Nueva contrasena' : 'Contrasena' }}</label>
+              <div class="input-with-icon">
+                <span class="material-symbols-rounded">lock_reset</span>
+                <input
+                  class="input"
+                  type="password"
+                  [(ngModel)]="newTech.password"
+                  [placeholder]="editing ? 'Dejar vacio para no cambiar' : '12345678*'"
+                />
+              </div>
+            </div>
+
             <div class="field full">
               <label>Especialidades</label>
               <div class="spec-chips">
@@ -131,6 +157,16 @@ import { Technician } from '../../models/interfaces';
             <div class="tech-info">
               <span class="material-symbols-rounded">call</span>
               <a href="tel:{{ t.phone }}">{{ t.phone }}</a>
+            </div>
+
+            <div class="tech-info">
+              <span class="material-symbols-rounded">mail</span>
+              <a *ngIf="t.user_email; else noEmailTpl" href="mailto:{{ t.user_email }}">
+                {{ t.user_email }}
+              </a>
+              <ng-template #noEmailTpl>
+                <span>Sin correo asociado</span>
+              </ng-template>
             </div>
 
             <div class="specialties">
@@ -361,7 +397,13 @@ export class TechniciansComponent implements OnInit {
   error = false;
   showForm = false;
   editing: number | null = null;
-  newTech = { name: '', phone: '', specialties: 'battery,tire,crash,engine' };
+  newTech = {
+    name: '',
+    phone: '',
+    email: '',
+    password: '',
+    specialties: 'battery,tire,crash,engine',
+  };
 
   specOptions = [
     { value: 'battery', label: 'Bateria', icon: 'battery_alert' },
@@ -420,19 +462,26 @@ export class TechniciansComponent implements OnInit {
     return (
       this.newTech.name.trim().length > 0 &&
       this.newTech.phone.trim().length > 0 &&
+      (!this.newTech.email.trim() || this.newTech.email.includes('@')) &&
+      (!this.newTech.password || this.newTech.password.length >= 8) &&
       this.newTech.specialties.trim().length > 0
     );
   }
 
   saveTechnician() {
     if (!this.canSave()) return;
+    const payload = {
+      ...this.newTech,
+      email: this.newTech.email.trim() || undefined,
+      password: this.newTech.password || undefined,
+    };
     if (this.editing) {
-      this.api.updateTechnician(this.editing, this.newTech).subscribe(() => {
+      this.api.updateTechnician(this.editing, payload).subscribe(() => {
         this.resetForm();
         this.loadData();
       });
     } else {
-      this.api.createTechnician(this.newTech).subscribe(() => {
+      this.api.createTechnician(payload).subscribe(() => {
         this.resetForm();
         this.loadData();
       });
@@ -444,6 +493,8 @@ export class TechniciansComponent implements OnInit {
     this.newTech = {
       name: t.name,
       phone: t.phone,
+      email: t.user_email || '',
+      password: '',
       specialties: t.specialties,
     };
     this.showForm = true;
@@ -468,6 +519,8 @@ export class TechniciansComponent implements OnInit {
     this.newTech = {
       name: '',
       phone: '',
+      email: '',
+      password: '',
       specialties: 'battery,tire,crash,engine',
     };
   }

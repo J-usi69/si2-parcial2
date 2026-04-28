@@ -213,6 +213,28 @@ def update_incident(
     if not incident:
         raise HTTPException(status_code=404, detail="Incidente no encontrado")
 
+    if current_user.role == UserRole.WORKSHOP:
+        workshop = db.query(Workshop).filter(Workshop.user_id == current_user.id).first()
+        if not workshop or incident.workshop_id != workshop.id:
+            raise HTTPException(status_code=403, detail="Sin acceso a este incidente")
+        if data.final_cost is not None or data.estimated_arrival is not None:
+            raise HTTPException(status_code=403, detail="El monto y ETA se definen en la oferta aceptada")
+        if data.status not in {IncidentStatus.IN_PROGRESS}:
+            raise HTTPException(status_code=403, detail="El taller solo puede iniciar el servicio; el cliente lo finaliza con el pago")
+
+    if current_user.role == UserRole.CLIENT:
+        raise HTTPException(status_code=403, detail="El cliente finaliza desde el flujo de pago")
+
+    if current_user.role == UserRole.TECHNICIAN:
+        from app.models.workshop import Technician
+        technician = db.query(Technician).filter(Technician.user_id == current_user.id).first()
+        if not technician or incident.technician_id != technician.id:
+            raise HTTPException(status_code=403, detail="Sin acceso a este incidente")
+        if data.final_cost is not None or data.estimated_arrival is not None:
+            raise HTTPException(status_code=403, detail="El tecnico no puede cambiar el monto")
+        if data.status not in {IncidentStatus.IN_PROGRESS}:
+            raise HTTPException(status_code=403, detail="El cliente finaliza el servicio con el pago")
+
     if data.status is not None:
         incident.status = data.status
         _status_labels = {

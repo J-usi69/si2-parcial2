@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Incident, Notification, Payment, Technician, User, Workshop, ChatMessage, Review } from '../models/interfaces';
+import { Incident, Notification, Payment, ServiceOffer, Technician, User, Workshop, ChatMessage, Review } from '../models/interfaces';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -51,11 +51,11 @@ export class ApiService {
     return this.http.get<Technician[]>(`${this.apiUrl}/workshops/technicians`);
   }
 
-  createTechnician(data: Partial<Technician>): Observable<Technician> {
+  createTechnician(data: Partial<Technician> & { email?: string; password?: string }): Observable<Technician> {
     return this.http.post<Technician>(`${this.apiUrl}/workshops/technicians`, data);
   }
 
-  updateTechnician(id: number, data: Partial<Technician>): Observable<Technician> {
+  updateTechnician(id: number, data: Partial<Technician> & { email?: string; password?: string }): Observable<Technician> {
     return this.http.put<Technician>(`${this.apiUrl}/workshops/technicians/${id}`, data);
   }
 
@@ -72,9 +72,12 @@ export class ApiService {
     return this.http.get<Incident>(`${this.apiUrl}/incidents/${id}`);
   }
 
-  acceptIncident(id: number, technicianId?: number): Observable<Incident> {
-    const params = technicianId ? `?technician_id=${technicianId}` : '';
-    return this.http.post<Incident>(`${this.apiUrl}/incidents/${id}/accept${params}`, {});
+  createOffer(id: number, data: { cost: number; estimated_arrival: number; technician_id?: number | null; message?: string | null }): Observable<ServiceOffer> {
+    return this.http.post<ServiceOffer>(`${this.apiUrl}/offers/incidents/${id}`, data);
+  }
+
+  getMyOffer(id: number): Observable<ServiceOffer | null> {
+    return this.http.get<ServiceOffer | null>(`${this.apiUrl}/offers/incidents/${id}/mine`);
   }
 
   rejectIncident(id: number): Observable<any> {

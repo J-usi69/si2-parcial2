@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, Enum, Float, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -27,3 +27,17 @@ class Payment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     incident: Mapped["Incident"] = relationship(back_populates="payment")
+
+
+class PaymentCard(Base):
+    __tablename__ = "payment_cards"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    holder_name: Mapped[str] = mapped_column(String(255))
+    brand: Mapped[str] = mapped_column(String(50), default="card")
+    last4: Mapped[str] = mapped_column(String(4))
+    exp_month: Mapped[int]
+    exp_year: Mapped[int]
+    is_default: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

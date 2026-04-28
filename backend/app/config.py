@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     GOOGLE_CLOUD_PROJECT: str = "asistecar"
     GOOGLE_CLOUD_LOCATION: str = "us-central1"
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
     UPLOAD_DIR: str = "./uploads"
     FIREBASE_CREDENTIALS_PATH: str = ""
 

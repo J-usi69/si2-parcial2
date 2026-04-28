@@ -22,7 +22,10 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
   Incident? _incident;
   bool _loading = true;
   bool _paying = false;
+  bool _acceptingOffer = false;
   Review? _review;
+  List<ServiceOffer> _offers = [];
+  List<PaymentCard> _cards = [];
 
   @override
   void initState() {
@@ -35,6 +38,12 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
     try {
       final inc = await ApiService.getIncident(widget.incidentId);
       if (mounted) setState(() => _incident = inc);
+      if (inc.status == 'pending') {
+        final offers = await ApiService.getIncidentOffers(inc.id);
+        if (mounted) setState(() => _offers = offers);
+      }
+      final cards = await ApiService.getPaymentCards();
+      if (mounted) setState(() => _cards = cards);
       // Load review if completed
       if (inc.status == 'completed') {
         final rev = await ApiService.getReviewForIncident(inc.id);
@@ -118,6 +127,10 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                   _buildStatusHero(),
                   const SizedBox(height: AppSpacing.lg),
                   _buildAICard(),
+                  if (_incident!.status == 'pending') ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildOffersCard(),
+                  ],
                   const SizedBox(height: AppSpacing.lg),
                   _buildInfoCard(),
                   const SizedBox(height: AppSpacing.lg),
@@ -364,6 +377,117 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
     ).animate(delay: 200.ms).fadeIn().moveY(begin: 16, end: 0);
   }
 
+  Widget _buildOffersCard() {
+    final colors = context.appColors;
+    final recommendedOffers = _offers
+        .where((offer) => offer.isRecommended)
+        .toList();
+    final recommended = recommendedOffers.isNotEmpty
+        ? recommendedOffers.first
+        : null;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            spreadRadius: 2,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.local_offer_rounded,
+                  color: AppColors.accent,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Ofertas de talleres',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (_acceptingOffer)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (recommended != null)
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.info.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.auto_awesome_rounded, color: AppColors.info),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      recommended.recommendationReason ??
+                          'IA recomienda esta oferta por precio, distancia y calificacion.',
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _acceptingOffer ? null : _autoAcceptOffer,
+              icon: const Icon(Icons.auto_awesome_rounded),
+              label: const Text('Aceptar recomendacion de IA'),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (_offers.isEmpty)
+            Text(
+              'Buscando ofertas de talleres cercanos...',
+              style: TextStyle(color: colors.textTertiary),
+            )
+          else
+            ..._offers.map(
+              (offer) => _OfferTile(
+                offer: offer,
+                accepting: _acceptingOffer,
+                onAccept: () => _acceptOffer(offer),
+              ),
+            ),
+        ],
+      ),
+    ).animate(delay: 150.ms).fadeIn().moveY(begin: 16, end: 0);
+  }
+
   Widget _buildMapCard() {
     final inc = _incident!;
     final pos = LatLng(inc.latitude, inc.longitude);
@@ -595,6 +719,7 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
 
   Widget _buildPaymentCard() {
     final inc = _incident!;
+    final isPaid = inc.status == 'completed';
     return Container(
       decoration: BoxDecoration(
         gradient: AppColors.successGradient,
@@ -625,7 +750,7 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Total a pagar',
+            isPaid ? 'Pago registrado' : 'Total a pagar',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
               fontSize: 13,
@@ -641,38 +766,64 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _paying ? null : _pay,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppColors.success,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+          if (isPaid)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
               ),
-              icon: _paying
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: AppColors.success,
-                      ),
-                    )
-                  : const Icon(Icons.check_rounded, size: 18),
-              label: Text(
-                _paying ? 'Procesando...' : 'Realizar pago',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.verified_rounded, color: Colors.white, size: 18),
+                  SizedBox(width: AppSpacing.sm),
+                  Text(
+                    'Servicio pagado',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _paying ? null : _showPaymentOptions,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppColors.success,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                icon: _paying
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: AppColors.success,
+                        ),
+                      )
+                    : const Icon(Icons.check_rounded, size: 18),
+                label: Text(
+                  _paying ? 'Procesando...' : 'Elegir forma de pago',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     ).animate(delay: 400.ms).fadeIn().moveY(begin: 16, end: 0);
@@ -1033,16 +1184,25 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
     ).animate(delay: 350.ms).fadeIn().moveY(begin: 16, end: 0);
   }
 
-  Future<void> _pay() async {
+  Future<void> _payWithMethod(String method, {int? cardId}) async {
     if (_incident?.finalCost == null) return;
     setState(() => _paying = true);
     try {
       await ApiService.createPayment(
         incidentId: _incident!.id,
         amount: _incident!.finalCost!,
+        method: method,
+        cardId: cardId,
       );
+      final updated = await ApiService.getIncident(_incident!.id);
       if (mounted) {
-        AppSnackBar.success(context, 'Pago realizado exitosamente');
+        setState(() => _incident = updated);
+        AppSnackBar.success(
+          context,
+          method == 'cash'
+              ? 'Pago en efectivo registrado'
+              : 'Pago con tarjeta realizado',
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -1051,6 +1211,153 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
     } finally {
       if (mounted) setState(() => _paying = false);
     }
+  }
+
+  Future<void> _acceptOffer(ServiceOffer offer) async {
+    setState(() => _acceptingOffer = true);
+    try {
+      await ApiService.acceptOffer(offer.id);
+      await _load();
+      if (mounted) {
+        AppSnackBar.success(context, 'Oferta aceptada');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.error(context, e.toString().replaceAll('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _acceptingOffer = false);
+      }
+    }
+  }
+
+  Future<void> _autoAcceptOffer() async {
+    if (_incident == null) return;
+    setState(() => _acceptingOffer = true);
+    try {
+      await ApiService.autoAcceptBestOffer(_incident!.id);
+      await _load();
+      if (mounted) {
+        AppSnackBar.success(context, 'La IA eligio la oferta mas conveniente');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.error(context, e.toString().replaceAll('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _acceptingOffer = false);
+      }
+    }
+  }
+
+  void _showPaymentOptions() {
+    final defaultCards = _cards.where((card) => card.isDefault).toList();
+    final defaultCard = defaultCards.isNotEmpty ? defaultCards.first : null;
+    String selectedMethod = defaultCard != null ? 'card' : 'cash';
+    PaymentCard? selectedCard = defaultCard;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.appColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Forma de pago',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: context.appColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Selecciona el metodo y confirma el pago para finalizar el servicio.',
+                style: TextStyle(color: context.appColors.textTertiary),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              if (_cards.isNotEmpty) ...[
+                _PaymentOption(
+                  icon: Icons.credit_card_rounded,
+                  title: selectedCard == null
+                      ? 'Tarjeta guardada'
+                      : 'Tarjeta terminada en ${selectedCard!.last4}',
+                  subtitle: selectedCard == null
+                      ? 'Selecciona una tarjeta guardada'
+                      : '${selectedCard!.brand} ${selectedCard!.expMonth}/${selectedCard!.expYear}',
+                  selected: selectedMethod == 'card',
+                  onTap: () => setModalState(() {
+                    selectedMethod = 'card';
+                    selectedCard ??= defaultCard ?? _cards.first;
+                  }),
+                ),
+                if (selectedMethod == 'card') ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  ..._cards.map(
+                    (card) => _SavedCardOption(
+                      card: card,
+                      selected: selectedCard?.id == card.id,
+                      onTap: () => setModalState(() {
+                        selectedMethod = 'card';
+                        selectedCard = card;
+                      }),
+                    ),
+                  ),
+                ],
+              ] else
+                _PaymentOption(
+                  icon: Icons.credit_card_off_rounded,
+                  title: 'Sin tarjetas guardadas',
+                  subtitle: 'Agrega una tarjeta desde Perfil > Metodos de pago',
+                  selected: false,
+                  onTap: () {},
+                ),
+              const SizedBox(height: AppSpacing.sm),
+              _PaymentOption(
+                icon: Icons.payments_rounded,
+                title: 'Pago en efectivo',
+                subtitle: 'Confirmar pago en efectivo y finalizar el servicio',
+                selected: selectedMethod == 'cash',
+                onTap: () => setModalState(() {
+                  selectedMethod = 'cash';
+                  selectedCard = null;
+                }),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: selectedMethod == 'card' && selectedCard == null
+                      ? null
+                      : () {
+                          Navigator.pop(ctx);
+                          _payWithMethod(
+                            selectedMethod,
+                            cardId: selectedMethod == 'card'
+                                ? selectedCard?.id
+                                : null,
+                          );
+                        },
+                  icon: const Icon(Icons.check_circle_rounded),
+                  label: Text(
+                    selectedMethod == 'cash'
+                        ? 'Confirmar pago en efectivo'
+                        : 'Confirmar pago con tarjeta',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _detailRow(String label, String value) {
@@ -1080,6 +1387,284 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _OfferTile extends StatelessWidget {
+  final ServiceOffer offer;
+  final bool accepting;
+  final VoidCallback onAccept;
+
+  const _OfferTile({
+    required this.offer,
+    required this.accepting,
+    required this.onAccept,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: offer.isRecommended
+            ? AppColors.info.withValues(alpha: 0.08)
+            : colors.surfaceAlt,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: offer.isRecommended ? AppColors.info : colors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  offer.workshopName ?? 'Taller disponible',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: colors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (offer.isRecommended)
+                const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: AppColors.info,
+                  size: 18,
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              _OfferMetric(
+                icon: Icons.payments_rounded,
+                text: 'Bs. ${offer.cost.toStringAsFixed(2)}',
+              ),
+              _OfferMetric(
+                icon: Icons.route_rounded,
+                text: '${offer.distanceKm.toStringAsFixed(1)} km',
+              ),
+              _OfferMetric(
+                icon: Icons.schedule_rounded,
+                text: '${offer.estimatedArrival} min',
+              ),
+              _OfferMetric(
+                icon: Icons.star_rounded,
+                text: offer.workshopRating?.toStringAsFixed(1) ?? '-',
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Conveniencia IA: ${offer.score.toStringAsFixed(0)}/100',
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (offer.technicianName != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Tecnico sugerido: ${offer.technicianName}',
+              style: TextStyle(color: colors.textTertiary, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: accepting ? null : onAccept,
+              icon: const Icon(Icons.check_circle_rounded),
+              label: const Text('Aceptar esta oferta'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OfferMetric extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _OfferMetric({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: context.appColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.primary),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PaymentOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.selected = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? AppColors.primary.withValues(alpha: 0.10)
+          : context.appColors.surfaceAlt,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: selected ? AppColors.primary : context.appColors.border,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: selected
+                    ? AppColors.primary
+                    : context.appColors.textSecondary,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: context.appColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: context.appColors.textTertiary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected
+                    ? AppColors.primary
+                    : context.appColors.textTertiary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SavedCardOption extends StatelessWidget {
+  final PaymentCard card;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SavedCardOption({
+    required this.card,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Material(
+        color: selected
+            ? AppColors.primary.withValues(alpha: 0.08)
+            : context.appColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: selected
+                      ? AppColors.primary
+                      : context.appColors.textTertiary,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '•••• ${card.last4}',
+                        style: TextStyle(
+                          color: context.appColors.textPrimary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        '${card.holderName} · ${card.expMonth}/${card.expYear}',
+                        style: TextStyle(
+                          color: context.appColors.textTertiary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

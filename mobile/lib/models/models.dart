@@ -230,6 +230,98 @@ class Technician {
   );
 }
 
+class ServiceOffer {
+  final int id;
+  final int incidentId;
+  final int workshopId;
+  final int? technicianId;
+  final double cost;
+  final int estimatedArrival;
+  final double distanceKm;
+  final double score;
+  final String? recommendationReason;
+  final String? message;
+  final String status;
+  final String createdAt;
+  final String? workshopName;
+  final double? workshopRating;
+  final int? workshopTotalRatings;
+  final String? technicianName;
+  final bool isRecommended;
+
+  ServiceOffer({
+    required this.id,
+    required this.incidentId,
+    required this.workshopId,
+    this.technicianId,
+    required this.cost,
+    required this.estimatedArrival,
+    required this.distanceKm,
+    required this.score,
+    this.recommendationReason,
+    this.message,
+    required this.status,
+    required this.createdAt,
+    this.workshopName,
+    this.workshopRating,
+    this.workshopTotalRatings,
+    this.technicianName,
+    required this.isRecommended,
+  });
+
+  factory ServiceOffer.fromJson(Map<String, dynamic> json) => ServiceOffer(
+    id: json['id'],
+    incidentId: json['incident_id'],
+    workshopId: json['workshop_id'],
+    technicianId: json['technician_id'],
+    cost: (json['cost'] as num).toDouble(),
+    estimatedArrival: json['estimated_arrival'],
+    distanceKm: (json['distance_km'] as num).toDouble(),
+    score: (json['score'] as num).toDouble(),
+    recommendationReason: json['recommendation_reason'],
+    message: json['message'],
+    status: json['status'],
+    createdAt: json['created_at'],
+    workshopName: json['workshop_name'],
+    workshopRating: json['workshop_rating'] != null
+        ? (json['workshop_rating'] as num).toDouble()
+        : null,
+    workshopTotalRatings: json['workshop_total_ratings'],
+    technicianName: json['technician_name'],
+    isRecommended: json['is_recommended'] ?? false,
+  );
+}
+
+class PaymentCard {
+  final int id;
+  final String holderName;
+  final String brand;
+  final String last4;
+  final int expMonth;
+  final int expYear;
+  final bool isDefault;
+
+  PaymentCard({
+    required this.id,
+    required this.holderName,
+    required this.brand,
+    required this.last4,
+    required this.expMonth,
+    required this.expYear,
+    required this.isDefault,
+  });
+
+  factory PaymentCard.fromJson(Map<String, dynamic> json) => PaymentCard(
+    id: json['id'],
+    holderName: json['holder_name'],
+    brand: json['brand'],
+    last4: json['last4'],
+    expMonth: json['exp_month'],
+    expYear: json['exp_year'],
+    isDefault: json['is_default'],
+  );
+}
+
 class AppNotification {
   final int id;
   final String title;

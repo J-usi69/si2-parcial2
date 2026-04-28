@@ -32,9 +32,11 @@ No crear paneles web para clientes o tecnicos como solucion principal. Si existe
 5. La IA debe sugerir una solucion y un costo aproximado del servicio.
 6. El sistema notifica a talleres pertinentes segun cercania y tipo de servicio requerido.
 7. Los talleres reciben la alerta en la web, revisan el caso y deciden si aceptan el trabajo.
-8. Si aceptan, envian una oferta al cliente.
-9. El cliente compara ofertas por distancia, caracteristicas del taller, calificaciones y costo sugerido.
-10. El cliente selecciona la oferta mas conveniente.
+8. Si quieren atenderlo, envian una oferta al cliente con costo, ETA, tecnico sugerido y condiciones.
+9. El cliente compara ofertas por distancia, calificacion, costo, ETA y recomendacion de IA.
+10. El cliente puede elegir manualmente una oferta estilo inDrive o aceptar la recomendacion automatica de IA.
+11. Al seleccionar una oferta, el sistema asigna taller/tecnico y avanza el servicio.
+12. El cliente puede pagar con tarjeta registrada o registrar pago en efectivo al finalizar; para demo/local los pagos son simulados.
 
 ## Dominio Y Entidades Clave
 
@@ -59,8 +61,12 @@ No crear paneles web para clientes o tecnicos como solucion principal. Si existe
 - Ver diagnostico/categoria sugerida por IA.
 - Recibir ofertas de talleres.
 - Comparar talleres por distancia, calificacion, caracteristicas y costo.
-- Seleccionar una oferta.
+- Ver recomendacion de IA sobre la oferta mas conveniente.
+- Seleccionar manualmente una oferta o aceptar la recomendacion automatica.
 - Seguir el estado del servicio.
+- Agregar tarjeta de debito/credito para pagos simulados.
+- Gestionar tarjetas desde el perfil movil del cliente: listar, agregar, eliminar y seleccionar predeterminada.
+- Pagar con tarjeta o registrar pago en efectivo al finalizar.
 - Calificar el taller al finalizar.
 
 ### App Movil Para Tecnicos
@@ -78,7 +84,7 @@ No crear paneles web para clientes o tecnicos como solucion principal. Si existe
 - Registrar e iniciar sesion como taller.
 - Ver alertas de incidentes cercanos y compatibles con sus servicios.
 - Aceptar o rechazar solicitudes.
-- Enviar ofertas de servicio.
+- Enviar ofertas de servicio con costo, ETA, tecnico sugerido y mensaje para el cliente.
 - Gestionar tecnicos, mecanicos y funcionarios propios.
 - Asignar tecnicos a servicios aceptados.
 - Actualizar estados del incidente.
@@ -100,6 +106,9 @@ No crear paneles web para clientes o tecnicos como solucion principal. Si existe
 - Mantener autenticacion por JWT.
 - Hashear contrasenas antes de guardarlas.
 - Coordinar clasificacion IA, asignacion, notificaciones, pagos, chat y evidencia.
+- Gestionar ofertas entre talleres y clientes antes de asignar un servicio.
+- Calcular recomendacion de oferta ponderando cercania, costo, ETA, calificacion y disponibilidad.
+- Simular tarjetas y pagos locales sin almacenar numero completo de tarjeta; guardar solo ultimos 4 digitos.
 - Mantener datos consistentes entre clientes, talleres, vehiculos, incidentes y tecnicos.
 
 ## Reglas Tecnicas Del Repositorio
@@ -115,6 +124,12 @@ No crear paneles web para clientes o tecnicos como solucion principal. Si existe
 - En Angular, permitir acceso operativo solo a roles `admin` y `workshop`.
 - En Flutter, soportar roles `client` y `technician` como experiencias moviles.
 - Los endpoints de tecnicos pertenecen al backend y deben consumirse desde `mobile/`, no desde el panel web como flujo principal.
+- Los talleres no deben asignarse directamente un incidente como flujo principal; deben enviar una oferta y esperar seleccion del cliente.
+- El costo queda definido por la oferta aceptada; el taller no debe cambiar el monto desde la web durante o al final del servicio.
+- El cierre economico del servicio lo hace el cliente desde mobile pagando con tarjeta simulada o registrando efectivo; ese pago marca el incidente como completado.
+- El cliente debe poder aceptar manualmente una oferta o pedir aceptacion automatica recomendada por IA.
+- Los pagos demo son simulados: tarjeta con ultimos 4 digitos y efectivo registrado, sin pasarela real hasta integrar proveedor de pagos.
+- En mobile, el pago debe pedir seleccion de metodo y confirmacion explicita: si es tarjeta, mostrar la tarjeta seleccionada; si es efectivo, mostrar boton de confirmar pago en efectivo.
 - Para seed/demo local, la contrasena solicitada para usuarios demo es `12345678*` y debe guardarse hasheada.
 - La base de datos local se configura con `backend/.env` y `DATABASE_URL`.
 

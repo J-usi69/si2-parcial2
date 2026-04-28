@@ -49,3 +49,7 @@ class Technician(Base):
     workshop: Mapped["Workshop"] = relationship(back_populates="technicians")
     user: Mapped["User | None"] = relationship()
     incidents: Mapped[list["Incident"]] = relationship(back_populates="technician")
+
+    @property
+    def user_email(self) -> str | None:
+        return self.user.email if self.user else None

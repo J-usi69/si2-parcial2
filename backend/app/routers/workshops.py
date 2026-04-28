@@ -12,7 +12,7 @@ from app.schemas.workshop import (
     WorkshopResponse,
     WorkshopUpdate,
 )
-from app.utils.security import get_current_user
+from app.utils.security import get_current_user, hash_password
 
 router = APIRouter(prefix="/api/workshops", tags=["Talleres"])
 
@@ -123,7 +123,27 @@ def create_technician(
     if not workshop:
         raise HTTPException(status_code=404, detail="No tiene taller registrado")
 
-    technician = Technician(workshop_id=workshop.id, **data.model_dump())
+    payload = data.model_dump(exclude={"email", "password"})
+    technician_user = None
+    if data.email:
+        existing_user = db.query(User).filter(User.email == data.email).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Ya existe un usuario con ese correo")
+        technician_user = User(
+            email=data.email,
+            password_hash=hash_password(data.password or "12345678*"),
+            full_name=data.name,
+            phone=data.phone,
+            role=UserRole.TECHNICIAN,
+        )
+        db.add(technician_user)
+        db.flush()
+
+    technician = Technician(
+        workshop_id=workshop.id,
+        user_id=technician_user.id if technician_user else None,
+        **payload,
+    )
     db.add(technician)
     db.commit()
     db.refresh(technician)
@@ -164,8 +184,38 @@ def update_technician(
     if not technician:
         raise HTTPException(status_code=404, detail="Tecnico no encontrado")
 
-    for field, value in data.model_dump(exclude_unset=True).items():
+    payload = data.model_dump(exclude_unset=True, exclude={"email", "password"})
+    for field, value in payload.items():
         setattr(technician, field, value)
+
+    if technician.user:
+        if data.name is not None:
+            technician.user.full_name = data.name
+        if data.phone is not None:
+            technician.user.phone = data.phone
+        if data.email is not None and data.email != technician.user.email:
+            existing_user = db.query(User).filter(User.email == data.email, User.id != technician.user.id).first()
+            if existing_user:
+                raise HTTPException(status_code=400, detail="Ya existe un usuario con ese correo")
+            technician.user.email = data.email
+        if data.password:
+            if len(data.password) < 8:
+                raise HTTPException(status_code=400, detail="La contrasena debe tener al menos 8 caracteres")
+            technician.user.password_hash = hash_password(data.password)
+    elif data.email:
+        existing_user = db.query(User).filter(User.email == data.email).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Ya existe un usuario con ese correo")
+        technician_user = User(
+            email=data.email,
+            password_hash=hash_password(data.password or "12345678*"),
+            full_name=data.name or technician.name,
+            phone=data.phone or technician.phone,
+            role=UserRole.TECHNICIAN,
+        )
+        db.add(technician_user)
+        db.flush()
+        technician.user_id = technician_user.id
     db.commit()
     db.refresh(technician)
     return technician

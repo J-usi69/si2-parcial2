@@ -268,6 +268,47 @@ class ApiService {
     throw Exception('Incidente no encontrado');
   }
 
+  static Future<List<ServiceOffer>> getIncidentOffers(int incidentId) async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/offers/incidents/$incidentId'),
+      headers: await _headers(),
+    );
+    if (resp.statusCode == 200) {
+      return (jsonDecode(resp.body) as List)
+          .map((o) => ServiceOffer.fromJson(o))
+          .toList();
+    }
+    throw Exception('Error al obtener ofertas');
+  }
+
+  static Future<ServiceOffer> acceptOffer(int offerId) async {
+    final resp = await http.post(
+      Uri.parse('$baseUrl/offers/$offerId/accept'),
+      headers: await _headers(),
+      body: jsonEncode({}),
+    );
+    if (resp.statusCode == 200) {
+      return ServiceOffer.fromJson(jsonDecode(resp.body));
+    }
+    throw Exception(
+      jsonDecode(resp.body)['detail'] ?? 'Error al aceptar oferta',
+    );
+  }
+
+  static Future<ServiceOffer> autoAcceptBestOffer(int incidentId) async {
+    final resp = await http.post(
+      Uri.parse('$baseUrl/offers/incidents/$incidentId/auto-accept'),
+      headers: await _headers(),
+      body: jsonEncode({}),
+    );
+    if (resp.statusCode == 200) {
+      return ServiceOffer.fromJson(jsonDecode(resp.body));
+    }
+    throw Exception(
+      jsonDecode(resp.body)['detail'] ?? 'Error al elegir oferta',
+    );
+  }
+
   static Future<Incident> uploadImage(int incidentId, File file) async {
     final token = await _getToken();
     final request = http.MultipartRequest(
@@ -375,19 +416,91 @@ class ApiService {
   }
 
   // PAYMENTS
+  static Future<List<PaymentCard>> getPaymentCards() async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/payments/cards'),
+      headers: await _headers(),
+    );
+    if (resp.statusCode == 200) {
+      return (jsonDecode(resp.body) as List)
+          .map((c) => PaymentCard.fromJson(c))
+          .toList();
+    }
+    throw Exception('Error al obtener tarjetas');
+  }
+
+  static Future<PaymentCard> addPaymentCard({
+    required String holderName,
+    required String cardNumber,
+    required int expMonth,
+    required int expYear,
+    required String cvv,
+    String brand = 'card',
+  }) async {
+    final resp = await http.post(
+      Uri.parse('$baseUrl/payments/cards'),
+      headers: await _headers(),
+      body: jsonEncode({
+        'holder_name': holderName,
+        'card_number': cardNumber,
+        'exp_month': expMonth,
+        'exp_year': expYear,
+        'cvv': cvv,
+        'brand': brand,
+      }),
+    );
+    if (resp.statusCode == 201) {
+      return PaymentCard.fromJson(jsonDecode(resp.body));
+    }
+    throw Exception(
+      jsonDecode(resp.body)['detail'] ?? 'Error al agregar tarjeta',
+    );
+  }
+
+  static Future<PaymentCard> setDefaultPaymentCard(int cardId) async {
+    final resp = await http.put(
+      Uri.parse('$baseUrl/payments/cards/$cardId/default'),
+      headers: await _headers(),
+      body: jsonEncode({}),
+    );
+    if (resp.statusCode == 200) {
+      return PaymentCard.fromJson(jsonDecode(resp.body));
+    }
+    throw Exception(
+      jsonDecode(resp.body)['detail'] ?? 'Error al seleccionar tarjeta',
+    );
+  }
+
+  static Future<void> deletePaymentCard(int cardId) async {
+    final resp = await http.delete(
+      Uri.parse('$baseUrl/payments/cards/$cardId'),
+      headers: await _headers(),
+    );
+    if (resp.statusCode != 204) {
+      throw Exception(
+        jsonDecode(resp.body)['detail'] ?? 'Error al eliminar tarjeta',
+      );
+    }
+  }
+
   static Future<void> createPayment({
     required int incidentId,
     required double amount,
     String method = 'card',
+    int? cardId,
   }) async {
+    final body = {
+      'incident_id': incidentId,
+      'amount': amount,
+      'payment_method': method,
+    };
+    if (cardId != null) {
+      body['card_id'] = cardId;
+    }
     final resp = await http.post(
       Uri.parse('$baseUrl/payments/'),
       headers: await _headers(),
-      body: jsonEncode({
-        'incident_id': incidentId,
-        'amount': amount,
-        'payment_method': method,
-      }),
+      body: jsonEncode(body),
     );
     if (resp.statusCode != 201) {
       throw Exception(jsonDecode(resp.body)['detail'] ?? 'Error en el pago');

@@ -3,7 +3,8 @@ from app.models.evidence import Evidence, EvidenceType
 from app.models.review import Review
 from app.models.incident import Incident, IncidentCategory, IncidentPriority, IncidentStatus
 from app.models.notification import Notification, NotificationType
-from app.models.payment import Payment, PaymentStatus
+from app.models.offer import OfferStatus, ServiceOffer
+from app.models.payment import Payment, PaymentCard, PaymentStatus
 from app.models.status_history import StatusHistory
 from app.models.user import User, UserRole
 from app.models.vehicle import Vehicle
@@ -16,7 +17,8 @@ __all__ = [
     "Incident", "IncidentCategory", "IncidentPriority", "IncidentStatus",
     "Evidence", "EvidenceType",
     "StatusHistory",
-    "Payment", "PaymentStatus",
+    "Payment", "PaymentCard", "PaymentStatus",
+    "ServiceOffer", "OfferStatus",
     "Notification", "NotificationType",
     "ChatMessage",
     "Review",

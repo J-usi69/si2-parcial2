@@ -49,12 +49,16 @@ class TechnicianCreate(BaseModel):
     name: str
     phone: str
     specialties: str = "battery,tire,crash,engine,other"
+    email: str | None = None
+    password: str | None = None
 
 
 class TechnicianUpdate(BaseModel):
     name: str | None = None
     phone: str | None = None
     specialties: str | None = None
+    email: str | None = None
+    password: str | None = None
     is_available: bool | None = None
     latitude: float | None = None
     longitude: float | None = None
@@ -64,6 +68,7 @@ class TechnicianResponse(BaseModel):
     id: int
     workshop_id: int
     user_id: int | None
+    user_email: str | None
     name: str
     phone: str
     specialties: str

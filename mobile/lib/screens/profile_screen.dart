@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../blocs/blocs.dart';
@@ -9,6 +10,7 @@ import '../models/models.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_snackbar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -19,6 +21,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   User? _user;
+  List<PaymentCard> _cards = [];
   bool _uploadingPhoto = false;
 
   @override
@@ -30,8 +33,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadUser() async {
     try {
       final user = await ApiService.fetchProfile();
+      final cards = user.role == 'client'
+          ? await ApiService.getPaymentCards()
+          : <PaymentCard>[];
       if (mounted) {
-        setState(() => _user = user);
+        setState(() {
+          _user = user;
+          _cards = cards;
+        });
         context.read<AuthBloc>().add(AuthUserUpdated(user));
       }
     } catch (_) {
@@ -339,6 +348,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ? 'Cliente'
                         : (_user?.role ?? '-'),
                   ),
+                  if (_user?.role == 'client') ...[
+                    const SizedBox(height: AppSpacing.xl),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Métodos de pago',
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              color: colors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                        ),
+                        IconButton.filledTonal(
+                          onPressed: _showAddCardDialog,
+                          icon: const Icon(Icons.add_card_rounded),
+                          tooltip: 'Agregar tarjeta',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    if (_cards.isEmpty)
+                      _EmptyPaymentCard(onAdd: _showAddCardDialog)
+                    else
+                      ..._cards.map(
+                        (card) => _PaymentCardTile(
+                          card: card,
+                          onSetDefault: () => _setDefaultCard(card),
+                          onDelete: () => _deleteCard(card),
+                        ),
+                      ),
+                  ],
                   const SizedBox(height: AppSpacing.xl),
                   Text(
                     'Ajustes',
@@ -444,6 +486,261 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     if (parts.isNotEmpty) return parts[0][0].toUpperCase();
     return '?';
+  }
+
+  Future<void> _setDefaultCard(PaymentCard card) async {
+    try {
+      await ApiService.setDefaultPaymentCard(card.id);
+      final cards = await ApiService.getPaymentCards();
+      if (mounted) {
+        setState(() => _cards = cards);
+        AppSnackBar.success(context, 'Tarjeta seleccionada');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.error(context, e.toString().replaceAll('Exception: ', ''));
+      }
+    }
+  }
+
+  Future<void> _deleteCard(PaymentCard card) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar tarjeta'),
+        content: Text('¿Eliminar la tarjeta terminada en ${card.last4}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ApiService.deletePaymentCard(card.id);
+      final cards = await ApiService.getPaymentCards();
+      if (mounted) {
+        setState(() => _cards = cards);
+        AppSnackBar.success(context, 'Tarjeta eliminada');
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackBar.error(context, e.toString().replaceAll('Exception: ', ''));
+      }
+    }
+  }
+
+  void _showAddCardDialog() {
+    final holderCtrl = TextEditingController(text: _user?.fullName ?? '');
+    final numberCtrl = TextEditingController();
+    final monthCtrl = TextEditingController();
+    final yearCtrl = TextEditingController();
+    final cvvCtrl = TextEditingController();
+    String? formError;
+    bool saving = false;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.appColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            MediaQuery.of(ctx).viewInsets.bottom + AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Agregar tarjeta',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: context.appColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: holderCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre en la tarjeta',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: numberCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(16),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Numero de tarjeta',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: monthCtrl,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(2),
+                      ],
+                      decoration: const InputDecoration(labelText: 'Mes'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: TextField(
+                      controller: yearCtrl,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4),
+                      ],
+                      decoration: const InputDecoration(labelText: 'Anio'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: cvvCtrl,
+                keyboardType: TextInputType.number,
+                obscureText: true,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(3),
+                ],
+                decoration: const InputDecoration(labelText: 'CVV'),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              if (formError != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.danger.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(
+                      color: AppColors.danger.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Text(
+                    formError!,
+                    style: const TextStyle(
+                      color: AppColors.danger,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: saving
+                      ? null
+                      : () async {
+                          final navigator = Navigator.of(ctx);
+                          setModalState(() {
+                            formError = null;
+                            saving = true;
+                          });
+                          try {
+                            final holder = holderCtrl.text.trim();
+                            final cardNumber = numberCtrl.text.trim();
+                            final cvv = cvvCtrl.text.trim();
+                            final expMonth = int.tryParse(
+                              monthCtrl.text.trim(),
+                            );
+                            final yearText = yearCtrl.text.trim();
+                            final parsedYear = int.tryParse(yearText);
+                            final expYear = parsedYear == null
+                                ? null
+                                : yearText.length == 2
+                                ? 2000 + parsedYear
+                                : parsedYear;
+                            final now = DateTime.now();
+
+                            if (holder.isEmpty) {
+                              throw Exception(
+                                'Ingresa el nombre de la tarjeta',
+                              );
+                            }
+                            if (cardNumber.length != 16) {
+                              throw Exception(
+                                'El numero de tarjeta debe tener 16 digitos',
+                              );
+                            }
+                            if (expMonth == null ||
+                                expMonth < 1 ||
+                                expMonth > 12) {
+                              throw Exception(
+                                'Ingresa un mes valido entre 01 y 12',
+                              );
+                            }
+                            if (expYear == null || yearText.length < 2) {
+                              throw Exception('Ingresa un anio valido');
+                            }
+                            if (expYear < now.year ||
+                                (expYear == now.year && expMonth < now.month)) {
+                              throw Exception('La tarjeta esta vencida');
+                            }
+                            if (cvv.length != 3) {
+                              throw Exception('El CVV debe tener 3 digitos');
+                            }
+
+                            await ApiService.addPaymentCard(
+                              holderName: holder,
+                              cardNumber: cardNumber,
+                              expMonth: expMonth,
+                              expYear: expYear,
+                              cvv: cvv,
+                            );
+                            final cards = await ApiService.getPaymentCards();
+                            if (mounted) {
+                              setState(() => _cards = cards);
+                            }
+                            navigator.pop();
+                            if (mounted) {
+                              AppSnackBar.success(context, 'Tarjeta guardada');
+                            }
+                          } catch (e) {
+                            if (mounted && navigator.canPop()) {
+                              setModalState(() {
+                                formError = e.toString().replaceAll(
+                                  'Exception: ',
+                                  '',
+                                );
+                                saving = false;
+                              });
+                            }
+                          }
+                        },
+                  icon: const Icon(Icons.lock_rounded),
+                  label: Text(saving ? 'Guardando...' : 'Guardar tarjeta'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -622,6 +919,157 @@ class _ActionTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EmptyPaymentCard extends StatelessWidget {
+  final VoidCallback onAdd;
+
+  const _EmptyPaymentCard({required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: context.appColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: context.appColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.credit_card_rounded, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Aun no tienes tarjetas guardadas',
+                  style: TextStyle(
+                    color: context.appColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Agrega una tarjeta de debito o credito para pagar servicios automaticamente.',
+            style: TextStyle(color: context.appColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add_card_rounded),
+              label: const Text('Agregar tarjeta'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentCardTile extends StatelessWidget {
+  final PaymentCard card;
+  final VoidCallback onSetDefault;
+  final VoidCallback onDelete;
+
+  const _PaymentCardTile({
+    required this.card,
+    required this.onSetDefault,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: context.appColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            spreadRadius: 2,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.credit_card_rounded,
+              color: AppColors.primary,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${card.brand.toUpperCase()} •••• ${card.last4}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: context.appColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${card.holderName} · vence ${card.expMonth}/${card.expYear}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.appColors.textTertiary,
+                  ),
+                ),
+                if (card.isDefault) ...[
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Predeterminada',
+                    style: TextStyle(
+                      color: AppColors.success,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'default') onSetDefault();
+              if (value == 'delete') onDelete();
+            },
+            itemBuilder: (_) => [
+              if (!card.isDefault)
+                const PopupMenuItem(
+                  value: 'default',
+                  child: Text('Usar como predeterminada'),
+                ),
+              const PopupMenuItem(value: 'delete', child: Text('Eliminar')),
+            ],
+          ),
+        ],
       ),
     );
   }

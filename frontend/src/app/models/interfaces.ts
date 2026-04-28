@@ -36,6 +36,7 @@ export interface Technician {
   id: number;
   workshop_id: number;
   user_id: number | null;
+  user_email: string | null;
   name: string;
   phone: string;
   specialties: string;
@@ -121,6 +122,26 @@ export interface Payment {
   status: 'pending' | 'completed' | 'failed' | 'refunded';
   transaction_id: string | null;
   created_at: string;
+}
+
+export interface ServiceOffer {
+  id: number;
+  incident_id: number;
+  workshop_id: number;
+  technician_id: number | null;
+  cost: number;
+  estimated_arrival: number;
+  distance_km: number;
+  score: number;
+  recommendation_reason: string | null;
+  message: string | null;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+  workshop_name: string | null;
+  workshop_rating: number | null;
+  workshop_total_ratings: number | null;
+  technician_name: string | null;
+  is_recommended: boolean;
 }
 
 export interface AssignmentCandidate {

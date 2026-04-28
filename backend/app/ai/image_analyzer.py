@@ -11,17 +11,20 @@ async def analyze_vehicle_image(image_path: str) -> dict:
     mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
     prompt = (
         "Eres un experto en mecanica automotriz que analiza imagenes para AsisteCar. "
-        "Identifica danos visibles, tipo de problema y gravedad. Responde solo JSON valido con: "
+        "Identifica danos visibles, tipo de problema y gravedad. Pon atencion especial a llantas bajas, "
+        "llantas reventadas, neumativos desinflados, rines danados, golpes visibles, fugas, humo o partes rotas. "
+        "Si la imagen muestra una llanta desinflada o aplastada contra el piso, clasifica categoria como tire. "
+        "Responde solo JSON valido con: "
         "danos_detectados (array), categoria (battery/tire/crash/engine/keys/other), "
         "gravedad (leve/moderado/grave), descripcion, requiere_remolque (boolean)."
     )
     try:
         return generate_json(prompt, image_data, mime_type)
-    except Exception as exc:
+    except Exception:
         return {
             "danos_detectados": [],
             "categoria": "other",
             "gravedad": "moderado",
-            "descripcion": f"No se pudo analizar la imagen automaticamente: {exc}",
+            "descripcion": "La imagen quedo registrada, pero el analisis automatico no estuvo disponible. Requiere revision del taller.",
             "requiere_remolque": False,
         }
