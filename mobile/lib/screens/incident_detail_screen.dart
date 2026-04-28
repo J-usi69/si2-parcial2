@@ -5,6 +5,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../config/app_config.dart';
 import '../services/websocket_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
@@ -723,7 +724,7 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: Image.network(
-                    'http://10.0.2.2:8000${ev.fileUrl}',
+                    '${AppConfig.serverBaseUrl}${ev.fileUrl}',
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => Container(
                       height: 120,

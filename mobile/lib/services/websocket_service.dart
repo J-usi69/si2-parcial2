@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
 
 class WebSocketService {
   static WebSocketService? _instance;
@@ -13,7 +14,7 @@ class WebSocketService {
   final _controller = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get notifications => _controller.stream;
 
-  static const String _baseWsUrl = 'ws://10.0.2.2:8000/ws';
+  static const String _baseWsUrl = AppConfig.wsBaseUrl;
 
   WebSocketService._();
 

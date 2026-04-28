@@ -1,40 +1,39 @@
-from openai import OpenAI
+import mimetypes
 
-from app.config import settings
+from app.ai.gemini_client import generate_json
 
 
 async def transcribe_audio(file_path: str) -> str:
-    """Transcribe un archivo de audio a texto usando Whisper de OpenAI."""
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
-
+    """Transcribe un archivo de audio a texto usando Gemini/Vertex AI."""
     with open(file_path, "rb") as audio_file:
-        transcription = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file,
-            language="es",
-        )
-    return transcription.text
+        audio_data = audio_file.read()
+
+    mime_type = mimetypes.guess_type(file_path)[0] or "audio/mp4"
+    prompt = (
+        "Transcribe este audio de una emergencia vehicular para AsisteCar. "
+        "El usuario puede hablar en espanol con ruido de calle. "
+        "Responde solo JSON valido con el campo transcripcion. "
+        "Si no se entiende, usa una cadena vacia."
+    )
+    result = generate_json(prompt, audio_data, mime_type)
+    return str(result.get("transcripcion") or "").strip()
 
 
 async def extract_key_info(transcription: str) -> dict:
-    """Extrae informacion clave de la transcripcion usando GPT."""
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    """Extrae informacion clave de la transcripcion usando Gemini/Vertex AI."""
+    if not transcription:
+        return {
+            "problema": "",
+            "urgencia": "media",
+            "detalles_adicionales": "No se pudo transcribir el audio.",
+            "categoria": "uncertain",
+        }
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Eres un asistente que analiza descripciones de emergencias vehiculares. "
-                    "Extrae la informacion clave y responde en formato JSON con los campos: "
-                    "problema (str), urgencia (baja/media/alta/critica), "
-                    "detalles_adicionales (str), categoria (battery/tire/crash/engine/keys/other)"
-                ),
-            },
-            {"role": "user", "content": f"Transcripcion del usuario: {transcription}"},
-        ],
-        response_format={"type": "json_object"},
+    prompt = (
+        "Eres un asistente que analiza descripciones de emergencias vehiculares para AsisteCar. "
+        "Extrae informacion clave y responde solo JSON valido con los campos: "
+        "problema (str), urgencia (baja/media/alta/critica), detalles_adicionales (str), "
+        "categoria (battery/tire/crash/engine/keys/other/uncertain).\n\n"
+        f"Transcripcion del usuario: {transcription}"
     )
-    import json
-    return json.loads(response.choices[0].message.content)
+    return generate_json(prompt)
