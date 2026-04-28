@@ -44,6 +44,10 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
             <span class="material-symbols-rounded">groups</span>
             <span class="nav-text" *ngIf="!collapsed">Usuarios</span>
           </a>
+          <a routerLink="/admin/notifications" routerLinkActive="active" class="nav-item" [title]="collapsed ? 'Notificaciones' : ''">
+            <span class="material-symbols-rounded">campaign</span>
+            <span class="nav-text" *ngIf="!collapsed">Notificaciones</span>
+          </a>
           <a routerLink="/reports" routerLinkActive="active" class="nav-item" [title]="collapsed ? 'Reportes' : ''">
             <span class="material-symbols-rounded">bar_chart</span>
             <span class="nav-text" *ngIf="!collapsed">Reportes</span>

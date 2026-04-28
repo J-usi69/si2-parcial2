@@ -17,6 +17,7 @@ export const routes: Routes = [
       { path: 'incidents/:id', loadComponent: () => import('./pages/incident-detail/incident-detail.component').then(m => m.IncidentDetailComponent) },
       { path: 'admin/users', canActivate: [adminGuard], loadComponent: () => import('./pages/admin-users/admin-users.component').then(m => m.AdminUsersComponent) },
       { path: 'admin/workshops', canActivate: [adminGuard], loadComponent: () => import('./pages/admin-workshops/admin-workshops.component').then(m => m.AdminWorkshopsComponent) },
+      { path: 'admin/notifications', canActivate: [adminGuard], loadComponent: () => import('./pages/admin-notifications/admin-notifications.component').then(m => m.AdminNotificationsComponent) },
       { path: 'technicians', canActivate: [workshopGuard], loadComponent: () => import('./pages/technicians/technicians.component').then(m => m.TechniciansComponent) },
       { path: 'history', loadComponent: () => import('./pages/history/history.component').then(m => m.HistoryComponent) },
       { path: 'reports', loadComponent: () => import('./pages/reports/reports.component').then(m => m.ReportsComponent) },

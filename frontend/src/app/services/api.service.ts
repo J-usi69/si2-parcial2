@@ -105,6 +105,20 @@ export class ApiService {
     return this.http.put(`${this.apiUrl}/notifications/read-all`, {});
   }
 
+  sendAdminPush(data: { title: string; message: string; target_roles: string[]; user_ids?: number[] | null }): Observable<{
+    targeted: number;
+    in_app_created: number;
+    push_sent: number;
+    without_push_token: number;
+  }> {
+    return this.http.post<{
+      targeted: number;
+      in_app_created: number;
+      push_sent: number;
+      without_push_token: number;
+    }>(`${this.apiUrl}/notifications/admin/push`, data);
+  }
+
   // Payments
   getPayments(): Observable<Payment[]> {
     return this.http.get<Payment[]>(`${this.apiUrl}/payments/my-payments`);

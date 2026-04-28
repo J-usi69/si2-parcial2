@@ -28,10 +28,10 @@ def _init_firebase():
         return False
 
 
-def send_push_notification(token: str, title: str, body: str, data: dict | None = None):
+def send_push_notification(token: str, title: str, body: str, data: dict | None = None) -> bool:
     """Send a push notification to a device via Firebase Cloud Messaging."""
     if not _init_firebase():
-        return
+        return False
 
     try:
         from firebase_admin import messaging
@@ -51,5 +51,7 @@ def send_push_notification(token: str, title: str, body: str, data: dict | None 
         )
         response = messaging.send(message)
         logger.info(f"Push notification sent: {response}")
+        return True
     except Exception as e:
         logger.warning(f"Push notification failed: {e}")
+        return False
