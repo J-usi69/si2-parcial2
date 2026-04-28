@@ -34,6 +34,11 @@ CATEGORY_MAP = {
 }
 
 
+def _uploaded_file_path(file_url: str) -> str:
+    relative_path = file_url.removeprefix("/uploads/").lstrip("/")
+    return os.path.join(settings.UPLOAD_DIR, relative_path)
+
+
 def process_incident_async(incident_id: int):
     """Lanza el procesamiento de IA en un hilo separado."""
     thread = threading.Thread(target=_run_processing, args=(incident_id,))
@@ -60,7 +65,7 @@ async def process_incident(incident_id: int, db: Session):
     # 1. Procesar audios pendientes
     for ev in evidences:
         if ev.type == EvidenceType.AUDIO and not ev.transcription and ev.file_url:
-            file_path = os.path.join(settings.UPLOAD_DIR, ev.file_url.lstrip("/uploads/"))
+            file_path = _uploaded_file_path(ev.file_url)
             if os.path.exists(file_path):
                 try:
                     transcription = await transcribe_audio(file_path)
@@ -75,7 +80,7 @@ async def process_incident(incident_id: int, db: Session):
     # 2. Procesar imagenes pendientes
     for ev in evidences:
         if ev.type == EvidenceType.IMAGE and not ev.ai_analysis and ev.file_url:
-            file_path = os.path.join(settings.UPLOAD_DIR, ev.file_url.lstrip("/uploads/"))
+            file_path = _uploaded_file_path(ev.file_url)
             if os.path.exists(file_path):
                 try:
                     analysis = await analyze_vehicle_image(file_path)
