@@ -56,6 +56,10 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
             <span class="material-symbols-rounded">insights</span>
             <span class="nav-text" *ngIf="!collapsed">KPIs</span>
           </a>
+          <a routerLink="/reports-ai" routerLinkActive="active" class="nav-item" [title]="collapsed ? 'Reportes IA' : ''">
+            <span class="material-symbols-rounded">auto_awesome</span>
+            <span class="nav-text" *ngIf="!collapsed">Reportes IA</span>
+          </a>
           <a routerLink="/reports" routerLinkActive="active" class="nav-item" [title]="collapsed ? 'Reportes' : ''">
             <span class="material-symbols-rounded">bar_chart</span>
             <span class="nav-text" *ngIf="!collapsed">Reportes</span>
@@ -98,6 +102,10 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
             <a routerLink="/kpis" routerLinkActive="active" class="nav-item" [title]="collapsed ? 'KPIs' : ''">
               <span class="material-symbols-rounded">insights</span>
               <span class="nav-text" *ngIf="!collapsed">KPIs</span>
+            </a>
+            <a routerLink="/reports-ai" routerLinkActive="active" class="nav-item" [title]="collapsed ? 'Reportes IA' : ''">
+              <span class="material-symbols-rounded">auto_awesome</span>
+              <span class="nav-text" *ngIf="!collapsed">Reportes IA</span>
             </a>
             <a routerLink="/reports" routerLinkActive="active" class="nav-item" [title]="collapsed ? 'Reportes' : ''">
               <span class="material-symbols-rounded">bar_chart</span>

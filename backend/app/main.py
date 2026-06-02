@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.database import get_db
-from app.routers import assistant, assignment, auth, chat, incidents, metrics, notifications, offers, payments, reviews, technician, users, vehicles, workshops
+from app.routers import assistant, assignment, auth, chat, incidents, metrics, notifications, offers, payments, reports, reviews, technician, users, vehicles, workshops
 from app.services.websocket_manager import manager
 from app.utils.security import get_current_user_from_token
 
@@ -75,6 +75,7 @@ app.include_router(chat.router)
 app.include_router(reviews.router)
 app.include_router(assistant.router)
 app.include_router(metrics.router)
+app.include_router(reports.router)
 
 
 @app.get("/", tags=["Root"])

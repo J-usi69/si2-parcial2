@@ -22,6 +22,7 @@ export const routes: Routes = [
       { path: 'technicians', canActivate: [workshopGuard], loadComponent: () => import('./pages/technicians/technicians.component').then(m => m.TechniciansComponent) },
       { path: 'invitations', canActivate: [workshopGuard], loadComponent: () => import('./pages/invitations/invitations.component').then(m => m.InvitationsComponent) },
       { path: 'kpis', loadComponent: () => import('./pages/kpis/kpis.component').then(m => m.KpisComponent) },
+      { path: 'reports-ai', loadComponent: () => import('./pages/reports-ai/reports-ai.component').then(m => m.ReportsAiComponent) },
       { path: 'history', loadComponent: () => import('./pages/history/history.component').then(m => m.HistoryComponent) },
       { path: 'reports', loadComponent: () => import('./pages/reports/reports.component').then(m => m.ReportsComponent) },
       { path: 'profile', loadComponent: () => import('./pages/profile/profile.component').then(m => m.ProfileComponent) },

@@ -232,6 +232,14 @@ export interface Review {
   user_name: string;
 }
 
+export interface ReportResult {
+  title: string;
+  sql: string;
+  columns: string[];
+  rows: (string | number | null)[][];
+  row_count: number;
+}
+
 export interface AssistantRequest {
   platform: 'web' | 'mobile';
   screen: string;

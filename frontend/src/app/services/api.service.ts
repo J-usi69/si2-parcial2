@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { AdminPayment, AdminPaymentSummary, AssistantRequest, AssistantResponse, Incident, MetricsSummary, Notification, Payment, ServiceOffer, Technician, User, Workshop, WorkshopInvitation, ChatMessage, Review } from '../models/interfaces';
+import { AdminPayment, AdminPaymentSummary, AssistantRequest, AssistantResponse, Incident, MetricsSummary, Notification, Payment, ReportResult, ServiceOffer, Technician, User, Workshop, WorkshopInvitation, ChatMessage, Review } from '../models/interfaces';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -172,5 +172,14 @@ export class ApiService {
     if (params?.date_to) query.set('date_to', params.date_to);
     const qs = query.toString();
     return this.http.get<MetricsSummary>(`${this.apiUrl}/metrics/summary${qs ? '?' + qs : ''}`);
+  }
+
+  // Reportes dinamicos por prompt (NL -> SQL)
+  generateReport(prompt: string): Observable<ReportResult> {
+    return this.http.post<ReportResult>(`${this.apiUrl}/reports/generate`, { prompt });
+  }
+
+  exportReport(data: { title: string; columns: string[]; rows: (string | number | null)[][]; format: 'xlsx' | 'docx' | 'pdf' }): Observable<Blob> {
+    return this.http.post(`${this.apiUrl}/reports/export`, data, { responseType: 'blob' });
   }
 }
