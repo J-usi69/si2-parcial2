@@ -15,7 +15,7 @@ import { WebSocketService } from '../../services/websocket.service';
       <div class="nav-inner">
         <a routerLink="/dashboard" class="nav-brand">
           <div class="brand-icon">
-            <img src="logo.png" alt="RescateYa" class="brand-logo">
+            <img src="logo.svg" alt="RescateYa" class="brand-logo">
           </div>
           <div class="brand-text">
             <span class="brand-name">RescateYa</span>

@@ -12,7 +12,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
       <div class="sidebar-brand">
         <a routerLink="/dashboard" class="brand-link">
           <div class="brand-icon">
-            <img src="logo.png" alt="RescateYa" class="brand-logo">
+            <img src="logo.svg" alt="RescateYa" class="brand-logo">
           </div>
           <span class="brand-name" *ngIf="!collapsed">RescateYa</span>
         </a>

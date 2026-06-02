@@ -15,7 +15,7 @@ import { PublicNavbarComponent } from '../../components/public-navbar/public-nav
       <div class="auth-wrapper">
         <div class="auth-hero">
           <div class="hero-content">
-            <img src="logo.png" alt="RescateYa" class="hero-logo">
+            <img src="logo.svg" alt="RescateYa" class="hero-logo">
             <h2>Emergencias vehiculares con <span class="highlight">inteligencia artificial</span></h2>
             <p>Panel avanzado para talleres. Asignación automatica, monitoreo GPS en tiempo real y clasificación IA.</p>
             <div class="hero-metrics">

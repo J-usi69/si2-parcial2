@@ -10,7 +10,7 @@ import { ThemeService } from '../../services/theme.service';
   template: `
     <nav class="public-navbar" aria-label="Navegacion principal">
       <a routerLink="/" class="brand" aria-label="RescateYa inicio">
-        <img src="logo.png" alt="RescateYa" class="brand-logo">
+        <img src="logo.svg" alt="RescateYa" class="brand-logo">
         <span>RescateYa</span>
       </a>
 

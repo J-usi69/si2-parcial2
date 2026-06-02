@@ -7,19 +7,19 @@
 
 /* ── Light Theme (default) ── */
 :root {
-  /* ── Brand — matched to logo ── */
-  --color-primary: #007AFF;
-  --color-primary-dark: #0066DD;
-  --color-primary-light: #1E88E5;
-  --color-primary-50: rgba(0, 122, 255, 0.05);
-  --color-primary-100: rgba(0, 122, 255, 0.10);
-  --color-accent: #FF7A00;
-  --color-accent-light: #FF8C00;
-  --color-accent-50: rgba(255, 122, 0, 0.07);
-  --color-accent-glow: rgba(255, 122, 0, 0.25);
-  --color-blue: #007AFF;
-  --color-blue-light: #1E88E5;
-  --color-blue-50: rgba(0, 122, 255, 0.07);
+  /* ── Brand — RescateYa · rescate vial (naranja roadside + rojo emergencia) ── */
+  --color-primary: #FF6B00;
+  --color-primary-dark: #E85D00;
+  --color-primary-light: #FF8A33;
+  --color-primary-50: rgba(255, 107, 0, 0.05);
+  --color-primary-100: rgba(255, 107, 0, 0.10);
+  --color-accent: #E63946;
+  --color-accent-light: #F2545B;
+  --color-accent-50: rgba(230, 57, 70, 0.07);
+  --color-accent-glow: rgba(230, 57, 70, 0.25);
+  --color-blue: #FF6B00;
+  --color-blue-light: #FF8A33;
+  --color-blue-50: rgba(255, 107, 0, 0.07);
 
   /* ── Semantic Status ── */
   --color-success: #0fad73;
@@ -64,11 +64,11 @@
   --color-divider: #eef0f4;
 
   /* ── Colors (flat) ── */
-  --gradient-primary: #007AFF;
+  --gradient-primary: #FF6B00;
   --gradient-emergency: #e53e3e;
   --gradient-success: #0fad73;
-  --gradient-accent: #FF7A00;
-  --gradient-blue: #007AFF;
+  --gradient-accent: #E63946;
+  --gradient-blue: #FF6B00;
   --gradient-glass: var(--color-surface);
   --gradient-mesh: none;
 
@@ -134,9 +134,9 @@
   --color-glass: var(--color-surface);
   --color-glass-strong: var(--color-surface);
 
-  --color-primary: #58a6ff;
-  --color-primary-dark: #388bfd;
-  --color-primary-light: #79c0ff;
+  --color-primary: #FF8A33;
+  --color-primary-dark: #FF6B00;
+  --color-primary-light: #FFA866;
 
   --color-text-primary: #e6edf3;
   --color-text-secondary: #8b949e;
@@ -147,15 +147,15 @@
   --color-border-strong: #484f58;
   --color-divider: #21262d;
 
-  --color-primary-50: rgba(88, 166, 255, 0.08);
-  --color-primary-100: rgba(88, 166, 255, 0.14);
+  --color-primary-50: rgba(255, 138, 51, 0.10);
+  --color-primary-100: rgba(255, 138, 51, 0.16);
 
   --color-success-light: rgba(15, 173, 115, 0.15);
   --color-warning-light: rgba(255, 122, 0, 0.15);
   --color-info-light: rgba(0, 122, 255, 0.15);
   --color-danger-light: rgba(229, 62, 62, 0.15);
 
-  --gradient-primary: #58a6ff;
+  --gradient-primary: #FF8A33;
   --gradient-glass: var(--color-surface);
   --gradient-mesh: none;
 

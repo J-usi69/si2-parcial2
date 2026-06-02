@@ -1,8 +1,12 @@
-import { Component } from '@angular/core';
+import { Component, NgZone, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { timeout } from 'rxjs/operators';
 import { ApiService } from '../../services/api.service';
 import { ReportResult } from '../../models/interfaces';
+
+// API de reconocimiento de voz del navegador (no tipada en TS por defecto).
+declare const window: any;
 
 @Component({
   selector: 'app-reports-ai',
@@ -18,8 +22,18 @@ import { ReportResult } from '../../models/interfaces';
       </div>
 
       <div class="prompt-box">
-        <textarea [(ngModel)]="prompt" rows="3"
-          placeholder="Ej: Clientes con mas incidencias en el ultimo mes; o talleres ordenados por servicios completados..."></textarea>
+        <div class="textarea-wrap">
+          <textarea [(ngModel)]="prompt" rows="3"
+            placeholder="Ej: Clientes con mas incidencias en el ultimo mes; o talleres ordenados por servicios completados..."></textarea>
+          <button type="button" class="mic-btn" [class.rec]="recording"
+            *ngIf="voiceSupported" (click)="toggleVoice()"
+            [title]="recording ? 'Detener dictado' : 'Dictar por voz'">
+            <span class="material-symbols-rounded">{{ recording ? 'stop_circle' : 'mic' }}</span>
+          </button>
+        </div>
+        <div class="rec-hint" *ngIf="recording">
+          <span class="dot"></span> Escuchando... habla tu consulta
+        </div>
         <div class="examples">
           <span class="ex" *ngFor="let e of examples" (click)="prompt = e">{{ e }}</span>
         </div>
@@ -70,7 +84,14 @@ import { ReportResult } from '../../models/interfaces';
     .page-title { font-size:1.6rem; font-weight:800; color:var(--color-text-primary); }
     .page-subtitle { color:var(--color-text-secondary); font-size:.9rem; }
     .prompt-box { background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:1rem; box-shadow:var(--shadow-sm); }
-    textarea { width:100%; border:1px solid var(--color-border); border-radius:var(--radius-md); padding:.7rem; font:inherit; resize:vertical; background:var(--color-surface-alt); color:var(--color-text-primary); }
+    .textarea-wrap { position:relative; }
+    textarea { width:100%; border:1px solid var(--color-border); border-radius:var(--radius-md); padding:.7rem 3rem .7rem .7rem; font:inherit; resize:vertical; background:var(--color-surface-alt); color:var(--color-text-primary); }
+    .mic-btn { position:absolute; top:.5rem; right:.5rem; width:2.2rem; height:2.2rem; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--color-surface); border:1px solid var(--color-border); color:var(--color-text-secondary); cursor:pointer; transition:all .15s; }
+    .mic-btn:hover { color:var(--color-primary); border-color:var(--color-primary); }
+    .mic-btn.rec { background:var(--color-danger); border-color:var(--color-danger); color:#fff; animation:micpulse 1.2s infinite; }
+    @keyframes micpulse { 0%,100%{ box-shadow:0 0 0 0 rgba(229,62,62,.5);} 50%{ box-shadow:0 0 0 6px rgba(229,62,62,0);} }
+    .rec-hint { display:flex; align-items:center; gap:.4rem; margin-top:.5rem; font-size:.8rem; color:var(--color-danger); font-weight:600; }
+    .rec-hint .dot { width:.5rem; height:.5rem; border-radius:50%; background:var(--color-danger); animation:micpulse 1.2s infinite; }
     .examples { display:flex; flex-wrap:wrap; gap:.4rem; margin:.7rem 0; }
     .ex { font-size:.78rem; padding:.3rem .6rem; background:var(--color-surface-alt); border-radius:var(--radius-pill); color:var(--color-text-secondary); cursor:pointer; }
     .ex:hover { background:var(--color-primary-50); color:var(--color-primary); }
@@ -98,12 +119,15 @@ import { ReportResult } from '../../models/interfaces';
     .muted { color:var(--color-text-tertiary); }
   `],
 })
-export class ReportsAiComponent {
+export class ReportsAiComponent implements OnDestroy {
   prompt = '';
   loading = false;
   exporting = false;
   error = '';
   result: ReportResult | null = null;
+  recording = false;
+
+  private recognition: any = null;
 
   examples = [
     'Incidentes por categoria de mayor a menor',
@@ -112,17 +136,58 @@ export class ReportsAiComponent {
     'Incidentes cancelados con su motivo',
   ];
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private zone: NgZone) {}
+
+  get voiceSupported(): boolean {
+    return typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
 
   generate(): void {
     this.loading = true;
     this.error = '';
     this.result = null;
-    this.api.generateReport(this.prompt.trim()).subscribe({
+    // Timeout de 60s: la IA + SQL nunca deberian tardar mas; evita "colgado" eterno.
+    this.api.generateReport(this.prompt.trim()).pipe(timeout(60000)).subscribe({
       next: (r) => { this.result = r; this.loading = false; },
-      error: (e) => { this.error = e?.error?.detail || 'No se pudo generar el reporte.'; this.loading = false; },
+      error: (e) => {
+        this.error = e?.name === 'TimeoutError'
+          ? 'La IA tardo demasiado en responder. Intenta de nuevo o simplifica la consulta.'
+          : (e?.error?.detail || 'No se pudo generar el reporte.');
+        this.loading = false;
+      },
     });
   }
+
+  toggleVoice(): void {
+    if (this.recording) { this.stopVoice(); return; }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { this.error = 'Tu navegador no soporta dictado por voz.'; return; }
+    const rec = new SR();
+    rec.lang = 'es-ES';
+    rec.interimResults = true;
+    rec.continuous = false;
+    let finalText = '';
+    rec.onresult = (ev: any) => {
+      let interim = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const t = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) finalText += t; else interim += t;
+      }
+      this.zone.run(() => { this.prompt = (finalText + interim).trim(); });
+    };
+    rec.onerror = () => this.zone.run(() => { this.recording = false; });
+    rec.onend = () => this.zone.run(() => { this.recording = false; });
+    this.recognition = rec;
+    this.recording = true;
+    rec.start();
+  }
+
+  private stopVoice(): void {
+    try { this.recognition?.stop(); } catch { /* ignore */ }
+    this.recording = false;
+  }
+
+  ngOnDestroy(): void { this.stopVoice(); }
 
   exportAs(format: 'xlsx' | 'docx' | 'pdf'): void {
     if (!this.result) return;
