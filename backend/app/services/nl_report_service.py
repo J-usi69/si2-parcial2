@@ -11,7 +11,7 @@ import re
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.ai.gemini_client import generate_json
+from app.ai.gemini_client import AIOverloadedError, generate_json
 
 # Tablas que el generador puede consultar.
 ALLOWED_TABLES = {
@@ -124,6 +124,8 @@ def generate_report(db: Session, user_prompt: str, tenant_id: int | None) -> dic
 
     try:
         result = generate_json(_build_prompt(user_prompt, tenant_id))
+    except AIOverloadedError:
+        raise  # saturacion temporal -> el router la traduce a 503
     except Exception as exc:  # noqa: BLE001
         raise ReportError(f"No se pudo generar el reporte con IA: {exc}") from exc
 

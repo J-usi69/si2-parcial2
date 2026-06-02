@@ -29,6 +29,7 @@ class WorkshopUpdate(BaseModel):
 class WorkshopResponse(BaseModel):
     id: int
     user_id: int
+    tenant_id: int | None = None
     name: str
     description: str | None
     address: str

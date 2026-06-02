@@ -60,6 +60,7 @@ export interface Token {
 export interface Workshop {
   id: number;
   user_id: number;
+  tenant_id: number | null;
   name: string;
   description: string | null;
   address: string;

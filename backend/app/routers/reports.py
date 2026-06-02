@@ -47,6 +47,9 @@ def generate_report(
     tenant_id = _scope(current_user, db)
     try:
         return nl_report_service.generate_report(db, data.prompt, tenant_id)
+    except nl_report_service.AIOverloadedError as exc:
+        # 503: saturacion temporal del modelo. El front puede sugerir reintentar.
+        raise HTTPException(status_code=503, detail=str(exc))
     except nl_report_service.ReportError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

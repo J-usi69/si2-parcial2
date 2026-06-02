@@ -1,8 +1,10 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Chart, registerables } from 'chart.js';
 import { ApiService } from '../../services/api.service';
-import { MetricsSummary } from '../../models/interfaces';
+import { AuthService } from '../../services/auth.service';
+import { MetricsSummary, Workshop } from '../../models/interfaces';
 
 Chart.register(...registerables);
 
@@ -18,7 +20,7 @@ const STATUS_ES: Record<string, string> = {
 @Component({
   selector: 'app-kpis',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="page-content reveal" *ngIf="m; else loadingTpl">
       <div class="page-header">
@@ -26,9 +28,18 @@ const STATUS_ES: Record<string, string> = {
           <h1 class="page-title">Indicadores {{ m!.scope === 'global' ? '— Plataforma' : '— Mi taller' }}</h1>
           <p class="page-subtitle">Métricas clave de atención de emergencias.</p>
         </div>
-        <button class="btn-refresh" (click)="load()">
-          <span class="material-symbols-rounded">refresh</span> Actualizar
-        </button>
+        <div class="header-actions">
+          <div class="tenant-select" *ngIf="isAdmin">
+            <span class="material-symbols-rounded">filter_alt</span>
+            <select [(ngModel)]="selectedTenant" (ngModelChange)="load()" aria-label="Filtrar por taller">
+              <option [ngValue]="null">Toda la plataforma</option>
+              <option *ngFor="let w of workshops" [ngValue]="w.tenant_id">{{ w.name }}</option>
+            </select>
+          </div>
+          <button class="btn-refresh" (click)="load()">
+            <span class="material-symbols-rounded">refresh</span> Actualizar
+          </button>
+        </div>
       </div>
 
       <!-- Tarjetas KPI -->
@@ -133,6 +144,11 @@ const STATUS_ES: Record<string, string> = {
     .page-header { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:1.25rem; }
     .page-title { font-size:1.6rem; font-weight:800; color:var(--color-text-primary); }
     .page-subtitle { color:var(--color-text-secondary); font-size:.9rem; }
+    .header-actions { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+    .tenant-select { display:flex; align-items:center; gap:.35rem; padding:.35rem .6rem; border-radius:var(--radius-md); background:var(--color-surface); border:1px solid var(--color-border); }
+    .tenant-select .material-symbols-rounded { font-size:1.1rem; color:var(--color-primary); }
+    .tenant-select select { border:none; background:transparent; color:var(--color-text-primary); font:inherit; font-weight:600; font-size:.85rem; cursor:pointer; outline:none; max-width:200px; }
+    .tenant-select select option { background:var(--color-surface); color:var(--color-text-primary); }
     .btn-refresh { display:flex; align-items:center; gap:.4rem; padding:.5rem .9rem; border-radius:var(--radius-md); background:var(--color-surface-alt); color:var(--color-text-secondary); font-weight:600; }
     .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.9rem; margin-bottom:1.5rem; }
     .kpi-card { background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-lg); padding:1rem; display:flex; gap:.85rem; align-items:center; box-shadow:var(--shadow-sm); }
@@ -157,16 +173,28 @@ const STATUS_ES: Record<string, string> = {
 })
 export class KpisComponent implements OnInit, OnDestroy {
   m: MetricsSummary | null = null;
+  isAdmin = false;
+  workshops: Workshop[] = [];
+  selectedTenant: number | null = null;
 
   private catChart?: Chart;
   private statusChart?: Chart;
 
-  constructor(private api: ApiService, private cdr: ChangeDetectorRef) {}
+  constructor(private api: ApiService, private auth: AuthService, private cdr: ChangeDetectorRef) {}
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.isAdmin = this.auth.getCurrentUser()?.role === 'admin';
+    // Solo el admin puede ver/filtrar por taller (la lista es endpoint admin-only).
+    if (this.isAdmin) {
+      this.api.getWorkshops().subscribe({ next: (ws) => { this.workshops = ws.filter((w) => w.tenant_id != null); } });
+    }
+    this.load();
+  }
 
   load(): void {
-    this.api.getMetricsSummary().subscribe({
+    // Para admin, selectedTenant=null => global; un id => KPIs de ese taller.
+    const params = this.isAdmin && this.selectedTenant != null ? { tenant_id: this.selectedTenant } : undefined;
+    this.api.getMetricsSummary(params).subscribe({
       next: (data) => {
         this.m = data;
         // detectChanges() fuerza a Angular a procesar el *ngIf y crear los <canvas>
