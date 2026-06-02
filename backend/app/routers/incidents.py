@@ -33,6 +33,13 @@ async def create_incident(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Idempotencia: si ya existe un incidente con este client_uuid, devolverlo
+    # (evita duplicados cuando el movil reintenta la sincronizacion offline).
+    if data.client_uuid:
+        existing = db.query(Incident).filter(Incident.client_uuid == data.client_uuid).first()
+        if existing:
+            return existing
+
     vehicle = db.query(Vehicle).filter(
         Vehicle.id == data.vehicle_id, Vehicle.user_id == current_user.id
     ).first()
@@ -40,6 +47,7 @@ async def create_incident(
         raise HTTPException(status_code=404, detail="Vehiculo no encontrado")
 
     incident = Incident(
+        client_uuid=data.client_uuid,
         user_id=current_user.id,
         vehicle_id=data.vehicle_id,
         latitude=data.latitude,

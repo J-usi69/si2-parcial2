@@ -1,10 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/offline/connectivity_service.dart';
+import '../services/offline/sync_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
-import '../widgets/app_snackbar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_skeleton.dart';
 import '../widgets/status_chip.dart';
@@ -21,11 +24,36 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<Incident> _incidents = [];
   bool _loading = true;
+  int _pendingSync = 0;
+  bool _offline = false;
+  StreamSubscription? _syncSub;
+  StreamSubscription<bool>? _connSub;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _refreshSyncState();
+    _offline = !ConnectivityService.instance.isOnline;
+    _syncSub = SyncService.instance.onChange.listen((_) {
+      _refreshSyncState();
+      _loadData();
+    });
+    _connSub = ConnectivityService.instance.onStatusChange.listen((online) {
+      if (mounted) setState(() => _offline = !online);
+    });
+  }
+
+  @override
+  void dispose() {
+    _syncSub?.cancel();
+    _connSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshSyncState() async {
+    final pending = await SyncService.instance.pendingCount();
+    if (mounted) setState(() => _pendingSync = pending);
   }
 
   Future<void> _loadData() async {
@@ -36,18 +64,59 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _incidents = incidents);
     } catch (e) {
       if (mounted) {
-        AppSnackBar.error(context, 'Error al cargar datos');
+        // Offline: no es error critico, puede haber datos en cache/outbox.
       }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  Widget _buildSyncBanner() {
+    if (!_offline && _pendingSync == 0) return const SizedBox.shrink();
+    final color = _offline ? AppColors.warning : AppColors.primary;
+    final icon = _offline ? Icons.cloud_off_rounded : Icons.sync_rounded;
+    final text = _offline
+        ? (_pendingSync > 0
+            ? 'Sin conexion · $_pendingSync emergencia(s) pendiente(s) de sincronizar'
+            : 'Sin conexion')
+        : 'Sincronizando $_pendingSync emergencia(s) pendiente(s)...';
+    return Container(
+      width: double.infinity,
+      color: color.withValues(alpha: 0.12),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(text,
+                style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 12)),
+          ),
+          if (!_offline && _pendingSync > 0)
+            const SizedBox(
+              width: 14, height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.appColors.background,
-      body: NestedScrollView(
+      body: Column(
+        children: [
+          SafeArea(bottom: false, child: _buildSyncBanner()),
+          Expanded(child: _buildBody(context)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    return NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             expandedHeight: 120,
@@ -118,7 +187,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               : _buildIncidentList(),
         ),
-      ),
     );
   }
 

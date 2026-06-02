@@ -7,6 +7,8 @@ import 'screens/login_screen.dart';
 import 'screens/main_shell_screen.dart';
 import 'screens/technician_jobs_screen.dart';
 import 'services/push_notification_service.dart';
+import 'services/offline/connectivity_service.dart';
+import 'services/offline/sync_service.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
 
@@ -14,6 +16,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  // Offline: detectar conexion y arrancar la sincronizacion automatica.
+  await ConnectivityService.instance.init();
+  SyncService.instance.start();
+  await SyncService.instance.syncNow(); // reintenta pendientes al abrir la app
   runApp(const RescateYaApp());
 }
 

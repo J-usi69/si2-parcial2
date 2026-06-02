@@ -37,6 +37,9 @@ class Incident(Base):
     __tablename__ = "incidents"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    # Clave de idempotencia generada en el cliente (offline) para evitar
+    # duplicar incidentes ante reintentos de sincronizacion.
+    client_uuid: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id"))
     # tenant_id se fija al tenant (taller) ganador cuando se acepta una oferta.

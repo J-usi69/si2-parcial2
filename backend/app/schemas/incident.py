@@ -11,6 +11,7 @@ class IncidentCreate(BaseModel):
     longitude: float
     address: str | None = None
     description: str | None = None
+    client_uuid: str | None = None  # idempotencia para sync offline
 
 
 class IncidentUpdate(BaseModel):

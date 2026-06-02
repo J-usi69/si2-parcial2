@@ -233,6 +233,7 @@ class ApiService {
     required double longitude,
     String? address,
     String? description,
+    String? clientUuid,
   }) async {
     final resp = await http.post(
       Uri.parse('$baseUrl/incidents/'),
@@ -243,9 +244,13 @@ class ApiService {
         'longitude': longitude,
         'address': address,
         'description': description,
+        'client_uuid': clientUuid,
       }),
     );
-    if (resp.statusCode == 201) return Incident.fromJson(jsonDecode(resp.body));
+    // 201 = creado; 200 = idempotente (ya existia ese client_uuid).
+    if (resp.statusCode == 201 || resp.statusCode == 200) {
+      return Incident.fromJson(jsonDecode(resp.body));
+    }
     throw Exception('Error al crear incidente');
   }
 

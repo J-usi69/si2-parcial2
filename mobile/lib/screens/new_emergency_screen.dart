@@ -6,8 +6,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/offline/connectivity_service.dart';
+import '../services/offline/outbox_repository.dart';
+import '../services/offline/sync_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_card.dart';
@@ -176,29 +180,61 @@ class _NewEmergencyScreenState extends State<NewEmergencyScreen> {
     if (_selectedVehicle == null || _position == null) return;
     setState(() => _loading = true);
 
+    final clientUuid = const Uuid().v4();
     try {
-      final incident = await ApiService.createIncident(
+      // 1. Persistir SIEMPRE en el outbox local (sobrevive aunque no haya red).
+      await SyncService.instance.enqueueEmergency(
+        clientUuid: clientUuid,
         vehicleId: _selectedVehicle!.id,
         latitude: _position!.latitude,
         longitude: _position!.longitude,
         description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
       );
 
-      for (final img in _images) {
-        await ApiService.uploadImage(incident.id, img);
+      // 2. Si no hay internet: queda pendiente de sincronizacion.
+      final online = await ConnectivityService.instance.checkNow();
+      if (!online) {
+        if (mounted) {
+          AppSnackBar.info(context,
+              'Sin conexion: tu emergencia quedo guardada y se enviara automaticamente al recuperar internet.');
+          Navigator.pop(context, true);
+        }
+        return;
       }
 
-      if (_audioFile != null) {
-        await ApiService.uploadAudio(incident.id, _audioFile!);
+      // 3. Online: sincronizar (crea el incidente con idempotencia por client_uuid).
+      await SyncService.instance.syncNow();
+
+      // 4. Subir evidencia al incidente ya sincronizado.
+      final items = await OutboxRepository.instance.all();
+      OutboxItem? item;
+      for (final it in items) {
+        if (it.clientUuid == clientUuid) item = it;
+      }
+      if (item?.remoteId != null) {
+        for (final img in _images) {
+          await ApiService.uploadImage(item!.remoteId!, img);
+        }
+        if (_audioFile != null) {
+          await ApiService.uploadAudio(item!.remoteId!, _audioFile!);
+        }
       }
 
       if (mounted) {
-        AppSnackBar.success(context, 'Emergencia reportada exitosamente');
+        if (item?.remoteId != null) {
+          AppSnackBar.success(context, 'Emergencia reportada exitosamente');
+        } else {
+          AppSnackBar.info(context,
+              'Emergencia guardada; se sincronizara automaticamente en breve.');
+        }
         Navigator.pop(context, true);
       }
     } catch (e) {
+      // Aunque falle el envio, quedo en el outbox y se reintentara solo.
       if (mounted) {
-        AppSnackBar.error(context, e.toString().replaceAll('Exception: ', ''));
+        AppSnackBar.info(context,
+            'Emergencia guardada localmente; se enviara al recuperar conexion.');
+        Navigator.pop(context, true);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
