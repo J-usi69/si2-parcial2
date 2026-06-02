@@ -2,13 +2,14 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.database import Base, engine, get_db
+from app.database import get_db
 from app.routers import assistant, assignment, auth, chat, incidents, notifications, offers, payments, reviews, technician, users, vehicles, workshops
 from app.services.websocket_manager import manager
 from app.utils.security import get_current_user_from_token
 
-# Crear tablas
-Base.metadata.create_all(bind=engine)
+# El esquema lo gestiona Alembic. Ejecutar antes de iniciar:
+#   alembic upgrade head
+# (ya no se usa Base.metadata.create_all para evitar mezclar con migraciones)
 
 app = FastAPI(
     title="RescateYa — Plataforma de Emergencias Vehiculares",

@@ -25,6 +25,7 @@ class UserResponse(BaseModel):
     phone: str
     role: UserRole
     is_active: bool
+    tenant_id: int | None = None
     profile_photo_url: str | None = None
     created_at: datetime
 

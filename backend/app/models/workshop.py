@@ -10,6 +10,8 @@ class Workshop(Base):
     __tablename__ = "workshops"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    # Relacion 1:1 con Tenant: cada taller es su propio tenant.
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), unique=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -25,6 +27,7 @@ class Workshop(Base):
     commission_rate: Mapped[float] = mapped_column(Float, default=0.10)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    tenant: Mapped["Tenant"] = relationship(back_populates="workshop")
     user: Mapped["User"] = relationship(back_populates="workshop")
     technicians: Mapped[list["Technician"]] = relationship(back_populates="workshop")
     incidents: Mapped[list["Incident"]] = relationship(back_populates="workshop")
@@ -35,6 +38,7 @@ class Technician(Base):
     __table_args__ = (UniqueConstraint("user_id", name="uq_technicians_user_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
     workshop_id: Mapped[int] = mapped_column(ForeignKey("workshops.id"))
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(255))
@@ -46,6 +50,7 @@ class Technician(Base):
     last_location_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    tenant: Mapped["Tenant"] = relationship(back_populates="technicians")
     workshop: Mapped["Workshop"] = relationship(back_populates="technicians")
     user: Mapped["User | None"] = relationship()
     incidents: Mapped[list["Incident"]] = relationship(back_populates="technician")

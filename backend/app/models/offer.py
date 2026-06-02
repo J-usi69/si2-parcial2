@@ -19,6 +19,7 @@ class ServiceOffer(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     incident_id: Mapped[int] = mapped_column(ForeignKey("incidents.id"))
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), index=True)
     workshop_id: Mapped[int] = mapped_column(ForeignKey("workshops.id"))
     technician_id: Mapped[int | None] = mapped_column(ForeignKey("technicians.id"), nullable=True)
     cost: Mapped[float] = mapped_column(Float)

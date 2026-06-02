@@ -39,6 +39,9 @@ class Incident(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id"))
+    # tenant_id se fija al tenant (taller) ganador cuando se acepta una oferta.
+    # Mientras esta PENDING es NULL (incidente cross-tenant en la capa plataforma).
+    tenant_id: Mapped[int | None] = mapped_column(ForeignKey("tenants.id"), nullable=True, index=True)
     workshop_id: Mapped[int | None] = mapped_column(ForeignKey("workshops.id"), nullable=True)
     technician_id: Mapped[int | None] = mapped_column(ForeignKey("technicians.id"), nullable=True)
 
@@ -69,7 +72,16 @@ class Incident(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
+    # Timestamps del ciclo de vida (alimentan los KPIs de tiempos).
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    en_route_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    arrived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancel_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     user: Mapped["User"] = relationship(back_populates="incidents")
+    tenant: Mapped["Tenant | None"] = relationship()
     vehicle: Mapped["Vehicle"] = relationship(back_populates="incidents")
     workshop: Mapped["Workshop | None"] = relationship(back_populates="incidents")
     technician: Mapped["Technician | None"] = relationship(back_populates="incidents")

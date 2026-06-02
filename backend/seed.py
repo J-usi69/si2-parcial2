@@ -16,9 +16,11 @@ from app.models import (
     PaymentStatus,
     Review,
     OfferStatus,
+    ServiceCategorySLA,
     ServiceOffer,
     StatusHistory,
     Technician,
+    Tenant,
     User,
     UserRole,
     Vehicle,
@@ -57,7 +59,24 @@ def sync_postgres_enums() -> None:
         conn.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'TECHNICIAN'"))
 
 
-def get_or_create_user(db, email: str, full_name: str, phone: str, role: UserRole) -> User:
+def get_or_create_tenant(db, name: str, slug: str, contact_phone: str) -> Tenant:
+    """Crea (o actualiza) el Tenant 1:1 de un taller."""
+    tenant = db.query(Tenant).filter(Tenant.slug == slug).first()
+    if tenant:
+        tenant.name = name
+        tenant.contact_phone = contact_phone
+        tenant.is_active = True
+        return tenant
+
+    tenant = Tenant(name=name, slug=slug, contact_phone=contact_phone, is_active=True)
+    db.add(tenant)
+    db.flush()
+    return tenant
+
+
+def get_or_create_user(
+    db, email: str, full_name: str, phone: str, role: UserRole, tenant_id: int | None = None
+) -> User:
     user = db.query(User).filter(User.email == email).first()
     if user:
         user.password_hash = PASSWORD_HASH
@@ -65,6 +84,7 @@ def get_or_create_user(db, email: str, full_name: str, phone: str, role: UserRol
         user.phone = phone
         user.role = role
         user.is_active = True
+        user.tenant_id = tenant_id
         return user
 
     user = User(
@@ -74,6 +94,7 @@ def get_or_create_user(db, email: str, full_name: str, phone: str, role: UserRol
         phone=phone,
         role=role,
         is_active=True,
+        tenant_id=tenant_id,
     )
     db.add(user)
     db.flush()
@@ -83,6 +104,7 @@ def get_or_create_user(db, email: str, full_name: str, phone: str, role: UserRol
 def get_or_create_workshop(
     db,
     user: User,
+    tenant_id: int,
     name: str,
     address: str,
     latitude: float,
@@ -96,6 +118,7 @@ def get_or_create_workshop(
 ) -> Workshop:
     workshop = db.query(Workshop).filter(Workshop.user_id == user.id).first()
     if workshop:
+        workshop.tenant_id = tenant_id
         workshop.name = name
         workshop.address = address
         workshop.latitude = latitude
@@ -110,6 +133,7 @@ def get_or_create_workshop(
         return workshop
 
     workshop = Workshop(
+        tenant_id=tenant_id,
         user_id=user.id,
         name=name,
         description=description,
@@ -145,6 +169,7 @@ def get_or_create_technician(
         .first()
     )
     if technician:
+        technician.tenant_id = workshop.tenant_id
         technician.user_id = user.id
         technician.name = name
         technician.specialties = specialties
@@ -154,6 +179,7 @@ def get_or_create_technician(
         return technician
 
     technician = Technician(
+        tenant_id=workshop.tenant_id,
         workshop_id=workshop.id,
         user_id=user.id,
         name=name,
@@ -221,6 +247,7 @@ def get_or_create_incident(
     )
     if incident:
         incident.vehicle_id = vehicle.id
+        incident.tenant_id = workshop.tenant_id if workshop else None
         incident.workshop_id = workshop.id if workshop else None
         incident.technician_id = technician.id if technician else None
         incident.category = category
@@ -236,6 +263,7 @@ def get_or_create_incident(
     incident = Incident(
         user_id=user.id,
         vehicle_id=vehicle.id,
+        tenant_id=workshop.tenant_id if workshop else None,
         workshop_id=workshop.id if workshop else None,
         technician_id=technician.id if technician else None,
         category=category,
@@ -378,6 +406,7 @@ def add_demo_offers(
         distance = round(2.4 + position * 1.8 + max(0, 5 - workshop.rating), 2)
         offer = ServiceOffer(
             incident_id=incident.id,
+            tenant_id=workshop.tenant_id,
             workshop_id=workshop.id,
             technician_id=technician.id,
             cost=cost,
@@ -420,6 +449,43 @@ def add_payment_and_review(db, incident: Incident, client: User, workshop: Works
         )
 
 
+def seed_default_slas(db) -> None:
+    """SLA global por defecto (tenant_id NULL) por categoria de incidente.
+
+    Alimenta el KPI 'servicios atendidos dentro del tiempo esperado'.
+    (asignacion_min, llegada_min, completado_min)
+    """
+    defaults = {
+        "battery": (10, 25, 45),
+        "tire": (10, 25, 40),
+        "crash": (10, 30, 120),
+        "engine": (10, 35, 120),
+        "keys": (10, 20, 40),
+        "other": (10, 30, 90),
+        "uncertain": (10, 30, 90),
+    }
+    for category, (asg, arr, comp) in defaults.items():
+        exists = (
+            db.query(ServiceCategorySLA)
+            .filter(ServiceCategorySLA.tenant_id.is_(None), ServiceCategorySLA.category == category)
+            .first()
+        )
+        if exists:
+            exists.expected_assignment_min = asg
+            exists.expected_arrival_min = arr
+            exists.expected_completion_min = comp
+            continue
+        db.add(
+            ServiceCategorySLA(
+                tenant_id=None,
+                category=category,
+                expected_assignment_min=asg,
+                expected_arrival_min=arr,
+                expected_completion_min=comp,
+            )
+        )
+
+
 def clear_database(db) -> None:
     table_names = ", ".join(f'"{table.name}"' for table in reversed(Base.metadata.sorted_tables))
     db.execute(text(f"TRUNCATE TABLE {table_names} RESTART IDENTITY CASCADE"))
@@ -433,6 +499,8 @@ def run_seed() -> None:
     db = SessionLocal()
     try:
         clear_database(db)
+
+        seed_default_slas(db)
 
         admin = get_or_create_user(db, "admin@asistecar.com", "Administrador Plataforma", "70000001", UserRole.ADMIN)
 
@@ -650,11 +718,16 @@ def run_seed() -> None:
         workshops = []
         workshop_users = []
         technicians_by_workshop = []
-        for spec in workshop_specs:
-            user = get_or_create_user(db, spec["email"], spec["owner"], spec["phone"], UserRole.WORKSHOP)
+        for spec_index, spec in enumerate(workshop_specs, start=1):
+            # Cada taller es su propio tenant (1:1).
+            tenant = get_or_create_tenant(db, spec["name"], f"taller-{spec_index}", spec["phone"])
+            user = get_or_create_user(
+                db, spec["email"], spec["owner"], spec["phone"], UserRole.WORKSHOP, tenant_id=tenant.id
+            )
             workshop = get_or_create_workshop(
                 db,
                 user,
+                tenant.id,
                 spec["name"],
                 spec["address"],
                 spec["lat"],
@@ -670,7 +743,7 @@ def run_seed() -> None:
                 get_or_create_technician(
                     db,
                     workshop,
-                    get_or_create_user(db, email, name, phone, UserRole.TECHNICIAN),
+                    get_or_create_user(db, email, name, phone, UserRole.TECHNICIAN, tenant_id=tenant.id),
                     name,
                     phone,
                     specialties,

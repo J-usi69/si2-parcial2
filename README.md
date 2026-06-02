@@ -112,19 +112,24 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/emergencias_vehicular
 SECRET_KEY=tu-clave-secreta-aqui
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
-GOOGLE_CLOUD_PROJECT=asistecar
-GOOGLE_CLOUD_LOCATION=us-central1
+GEMINI_API_KEY=tu-gemini-api-key
 GEMINI_MODEL=gemini-2.5-flash
 UPLOAD_DIR=./uploads
 FIREBASE_CREDENTIALS_PATH=
 ```
 
-> **Nota:** La IA principal usa Vertex AI con Gemini Flash (`GEMINI_MODEL=gemini-2.5-flash`). Para local, autentica Google Cloud con credenciales de aplicación predeterminadas o una cuenta de servicio con permisos de Vertex AI. Si Vertex no está disponible, el asistente contextual responde con guías locales básicas.
+> **Nota:** La IA usa **Gemini vía API key directa** (`GEMINI_API_KEY`, modelo `GEMINI_MODEL=gemini-2.5-flash`). Si la key no está disponible, el asistente contextual responde con guías locales básicas.
 
 4. Crear carpetas de uploads:
 
 ```bash
 mkdir -p uploads/images uploads/audio
+```
+
+5. Aplicar migraciones (el esquema lo gestiona **Alembic**, ya no `create_all`):
+
+```bash
+alembic upgrade head
 ```
 
 ### Ejecutar

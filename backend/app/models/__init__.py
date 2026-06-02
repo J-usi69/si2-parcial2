@@ -5,12 +5,15 @@ from app.models.incident import Incident, IncidentCategory, IncidentPriority, In
 from app.models.notification import Notification, NotificationType
 from app.models.offer import OfferStatus, ServiceOffer
 from app.models.payment import Payment, PaymentCard, PaymentStatus
+from app.models.sla import ServiceCategorySLA
 from app.models.status_history import StatusHistory
+from app.models.tenant import Tenant
 from app.models.user import User, UserRole
 from app.models.vehicle import Vehicle
 from app.models.workshop import Technician, Workshop
 
 __all__ = [
+    "Tenant",
     "User", "UserRole",
     "Workshop", "Technician",
     "Vehicle",
@@ -19,6 +22,7 @@ __all__ = [
     "StatusHistory",
     "Payment", "PaymentCard", "PaymentStatus",
     "ServiceOffer", "OfferStatus",
+    "ServiceCategorySLA",
     "Notification", "NotificationType",
     "ChatMessage",
     "Review",
