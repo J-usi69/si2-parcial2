@@ -13,6 +13,7 @@ from app.schemas.workshop import (
     WorkshopUpdate,
 )
 from app.utils.security import get_current_user, hash_password
+from app.utils.tenancy import create_tenant_for_workshop, get_user_workshop
 
 router = APIRouter(prefix="/api/workshops", tags=["Talleres"])
 
@@ -41,7 +42,14 @@ def create_workshop(
     if existing:
         raise HTTPException(status_code=400, detail="Ya tiene un taller registrado")
 
-    workshop = Workshop(user_id=current_user.id, **data.model_dump())
+    # Asegurar el tenant 1:1 del taller.
+    tenant_id = current_user.tenant_id
+    if tenant_id is None:
+        tenant = create_tenant_for_workshop(db, name=data.name, contact_phone=data.phone)
+        current_user.tenant_id = tenant.id
+        tenant_id = tenant.id
+
+    workshop = Workshop(tenant_id=tenant_id, user_id=current_user.id, **data.model_dump())
     db.add(workshop)
     db.commit()
     db.refresh(workshop)
@@ -55,9 +63,17 @@ def get_my_workshop(
 ):
     workshop = db.query(Workshop).filter(Workshop.user_id == current_user.id).first()
     if not workshop:
-        # Auto-crear taller para usuarios workshop existentes
+        # Auto-crear taller (y su tenant 1:1) para usuarios workshop existentes
         if current_user.role == UserRole.WORKSHOP:
+            tenant_id = current_user.tenant_id
+            if tenant_id is None:
+                tenant = create_tenant_for_workshop(
+                    db, name=f"Taller de {current_user.full_name}", contact_phone=current_user.phone
+                )
+                current_user.tenant_id = tenant.id
+                tenant_id = tenant.id
             workshop = Workshop(
+                tenant_id=tenant_id,
                 user_id=current_user.id,
                 name=f"Taller de {current_user.full_name}",
                 address="Direccion pendiente",
@@ -135,11 +151,13 @@ def create_technician(
             full_name=data.name,
             phone=data.phone,
             role=UserRole.TECHNICIAN,
+            tenant_id=workshop.tenant_id,
         )
         db.add(technician_user)
         db.flush()
 
     technician = Technician(
+        tenant_id=workshop.tenant_id,
         workshop_id=workshop.id,
         user_id=technician_user.id if technician_user else None,
         **payload,
@@ -212,6 +230,7 @@ def update_technician(
             full_name=data.name or technician.name,
             phone=data.phone or technician.phone,
             role=UserRole.TECHNICIAN,
+            tenant_id=technician.tenant_id,
         )
         db.add(technician_user)
         db.flush()

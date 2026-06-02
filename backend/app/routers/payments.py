@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -196,6 +196,7 @@ def create_payment(
 
     incident.commission_amount = commission
     incident.status = IncidentStatus.COMPLETED
+    incident.completed_at = datetime.now(timezone.utc)
 
     notification = Notification(
         user_id=current_user.id,

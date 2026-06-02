@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
@@ -246,6 +247,9 @@ def update_incident(
 
     if data.status is not None:
         incident.status = data.status
+        # Timestamp de llegada del tecnico (KPI tiempo de llegada).
+        if data.status == IncidentStatus.IN_PROGRESS and incident.arrived_at is None:
+            incident.arrived_at = datetime.now(timezone.utc)
         _status_labels = {
             "pending": "Pendiente",
             "assigned": "Asignado",
@@ -315,9 +319,11 @@ def accept_incident(
     if not incident:
         raise HTTPException(status_code=404, detail="Incidente no encontrado o ya asignado")
 
+    incident.tenant_id = workshop.tenant_id
     incident.workshop_id = workshop.id
     incident.technician_id = technician_id
     incident.status = IncidentStatus.ASSIGNED
+    incident.assigned_at = datetime.now(timezone.utc)
 
     history = StatusHistory(
         incident_id=incident.id,
@@ -370,9 +376,11 @@ def reject_incident(
     if not incident:
         raise HTTPException(status_code=404, detail="Incidente no encontrado")
 
+    incident.tenant_id = None
     incident.workshop_id = None
     incident.technician_id = None
     incident.status = IncidentStatus.PENDING
+    incident.assigned_at = None
     db.commit()
     return {"message": "Incidente rechazado"}
 

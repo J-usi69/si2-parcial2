@@ -56,6 +56,9 @@ def update_my_location(
         Incident.status.in_([IncidentStatus.ASSIGNED, IncidentStatus.IN_PROGRESS]),
     ).all()
     for incident in active_jobs:
+        # Primera ubicacion compartida en un trabajo asignado = "en camino".
+        if incident.en_route_at is None:
+            incident.en_route_at = technician.last_location_at
         notify_user_realtime(incident.user_id, {
             "type": "technician_location_update",
             "incident_id": incident.id,
@@ -65,6 +68,7 @@ def update_my_location(
             "longitude": technician.longitude,
             "last_location_at": technician.last_location_at.isoformat() if technician.last_location_at else None,
         })
+    db.commit()
     return technician
 
 
@@ -101,6 +105,8 @@ def update_job_status(
         raise HTTPException(status_code=404, detail="Trabajo no encontrado")
 
     incident.status = status_value
+    if status_value == IncidentStatus.IN_PROGRESS and incident.arrived_at is None:
+        incident.arrived_at = datetime.now(timezone.utc)
     db.add(StatusHistory(
         incident_id=incident.id,
         status=status_value.value,

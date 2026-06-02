@@ -1,4 +1,5 @@
 import math
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -102,6 +103,7 @@ def _ensure_demo_offers(db: Session, incident: Incident) -> None:
     for workshop, technician, cost, eta, distance in draft:
         offer = ServiceOffer(
             incident_id=incident.id,
+            tenant_id=workshop.tenant_id,
             workshop_id=workshop.id,
             technician_id=technician.id if technician else None,
             cost=cost,
@@ -185,6 +187,7 @@ def create_workshop_offer(
     distance = round(_distance_km(incident.latitude, incident.longitude, workshop.latitude, workshop.longitude), 2)
     offer = ServiceOffer(
         incident_id=incident.id,
+        tenant_id=workshop.tenant_id,
         workshop_id=workshop.id,
         technician_id=technician.id if technician else None,
         cost=data.cost,
@@ -231,9 +234,11 @@ def _accept_offer(db: Session, offer: ServiceOffer, current_user: User) -> Servi
         raise HTTPException(status_code=400, detail="Este incidente ya tiene un taller asignado")
 
     offer.status = OfferStatus.ACCEPTED
+    incident.tenant_id = offer.tenant_id
     incident.workshop_id = offer.workshop_id
     incident.technician_id = offer.technician_id
     incident.status = IncidentStatus.ASSIGNED
+    incident.assigned_at = datetime.now(timezone.utc)
     incident.final_cost = offer.cost
     incident.commission_amount = offer.cost * 0.10
     incident.estimated_arrival = offer.estimated_arrival

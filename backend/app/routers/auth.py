@@ -6,8 +6,14 @@ from app.models.user import User, UserRole
 from app.models.workshop import Workshop
 from app.schemas.user import Token, UserCreate, UserLogin, UserResponse
 from app.utils.security import create_access_token, get_current_user, hash_password, verify_password
+from app.utils.tenancy import create_tenant_for_workshop
 
 router = APIRouter(prefix="/api/auth", tags=["Autenticacion"])
+
+
+def _token_for(user: User) -> str:
+    """JWT con sub + tenant_id (refuerza el aislamiento multitenant)."""
+    return create_access_token({"sub": str(user.id), "tenant_id": user.tenant_id})
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
@@ -24,12 +30,14 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
         role=user_data.role,
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    db.flush()
 
-    # Auto-crear taller si el usuario es de tipo workshop
+    # Un taller = un tenant: al registrar un WORKSHOP se crea su Tenant 1:1.
     if user.role == UserRole.WORKSHOP:
+        tenant = create_tenant_for_workshop(db, name=f"Taller de {user.full_name}", contact_phone=user.phone)
+        user.tenant_id = tenant.id
         workshop = Workshop(
+            tenant_id=tenant.id,
             user_id=user.id,
             name=f"Taller de {user.full_name}",
             address="Direccion pendiente",
@@ -38,9 +46,11 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
             phone=user.phone,
         )
         db.add(workshop)
-        db.commit()
 
-    token = create_access_token({"sub": str(user.id)})
+    db.commit()
+    db.refresh(user)
+
+    token = _token_for(user)
     return Token(access_token=token, user=UserResponse.model_validate(user))
 
 
@@ -50,7 +60,7 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
-    token = create_access_token({"sub": str(user.id)})
+    token = _token_for(user)
     return Token(access_token=token, user=UserResponse.model_validate(user))
 
 
