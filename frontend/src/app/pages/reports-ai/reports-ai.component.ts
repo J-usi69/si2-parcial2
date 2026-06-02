@@ -23,7 +23,7 @@ declare const window: any;
 
       <div class="prompt-box">
         <div class="textarea-wrap">
-          <textarea [(ngModel)]="prompt" rows="3"
+          <textarea [(ngModel)]="prompt" rows="3" [disabled]="loading"
             placeholder="Ej: Clientes con mas incidencias en el ultimo mes; o talleres ordenados por servicios completados..."></textarea>
           <button type="button" class="mic-btn" [class.rec]="recording"
             *ngIf="voiceSupported" (click)="toggleVoice()"
@@ -35,7 +35,9 @@ declare const window: any;
           <span class="dot"></span> Escuchando... habla tu consulta
         </div>
         <div class="examples">
-          <span class="ex" *ngFor="let e of examples" (click)="prompt = e">{{ e }}</span>
+          <span class="ex" [class.ex-disabled]="loading"
+            *ngFor="let e of examples"
+            (click)="setExample(e)">{{ e }}</span>
         </div>
         <button class="btn-gen" (click)="generate()" [disabled]="loading || !prompt.trim()">
           <span class="material-symbols-rounded">{{ loading ? 'hourglass_top' : 'auto_awesome' }}</span>
@@ -99,8 +101,9 @@ declare const window: any;
     .rec-hint { display:flex; align-items:center; gap:.4rem; margin-top:.5rem; font-size:.8rem; color:var(--color-danger); font-weight:600; }
     .rec-hint .dot { width:.5rem; height:.5rem; border-radius:50%; background:var(--color-danger); animation:micpulse 1.2s infinite; }
     .examples { display:flex; flex-wrap:wrap; gap:.4rem; margin:.7rem 0; }
-    .ex { font-size:.78rem; padding:.3rem .6rem; background:var(--color-surface-alt); border-radius:var(--radius-pill); color:var(--color-text-secondary); cursor:pointer; }
-    .ex:hover { background:var(--color-primary-50); color:var(--color-primary); }
+    .ex { font-size:.78rem; padding:.3rem .6rem; background:var(--color-surface-alt); border-radius:var(--radius-pill); color:var(--color-text-secondary); cursor:pointer; user-select:none; }
+    .ex:hover:not(.ex-disabled) { background:var(--color-primary-50); color:var(--color-primary); }
+    .ex-disabled { opacity:.4; cursor:not-allowed; pointer-events:none; }
     .btn-gen { display:inline-flex; align-items:center; gap:.4rem; padding:.6rem 1.1rem; background:var(--color-primary); color:var(--color-text-on-primary); border-radius:var(--radius-md); font-weight:700; }
     .btn-gen:disabled { opacity:.5; }
     .error { display:flex; align-items:center; gap:.4rem; margin-top:1rem; padding:.7rem 1rem; background:rgba(230,57,70,.1); color:var(--color-danger); border-radius:var(--radius-md); font-size:.9rem; }
@@ -138,12 +141,12 @@ export class ReportsAiComponent implements OnDestroy {
   // La vista previa solo renderiza estas filas para no congelar el DOM
   // (una consulta puede traer hasta 500 filas; el export las incluye todas).
   readonly previewLimit = 20;
+  // Propiedad (no getter): se calcula UNA vez cuando llega la respuesta.
+  // Un getter se reevalúa en cada ciclo de change detection → slice() repetido
+  // → el DOM tarda en responder aunque la API ya devolvió 200.
+  previewRows: (string | number | null)[][] = [];
 
   private recognition: any = null;
-
-  get previewRows(): (string | number | null)[][] {
-    return this.result ? this.result.rows.slice(0, this.previewLimit) : [];
-  }
 
   examples = [
     'Incidentes por categoria de mayor a menor',
@@ -158,13 +161,23 @@ export class ReportsAiComponent implements OnDestroy {
     return typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
   }
 
+  setExample(e: string): void {
+    if (this.loading) return;
+    this.prompt = e;
+  }
+
   generate(): void {
     this.loading = true;
     this.error = '';
     this.result = null;
-    // Timeout de 60s: la IA + SQL nunca deberian tardar mas; evita "colgado" eterno.
+    this.previewRows = [];
     this.api.generateReport(this.prompt.trim()).pipe(timeout(60000)).subscribe({
-      next: (r) => { this.result = r; this.loading = false; },
+      next: (r) => {
+        // Calcular previewRows UNA sola vez aquí, no en cada ciclo de CD.
+        this.previewRows = r.rows.slice(0, this.previewLimit);
+        this.result = r;
+        this.loading = false;
+      },
       error: (e) => {
         this.error = e?.name === 'TimeoutError'
           ? 'La IA tardo demasiado en responder. Intenta de nuevo o simplifica la consulta.'
