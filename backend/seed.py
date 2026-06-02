@@ -17,6 +17,7 @@ from app.models import (
     Payment,
     PaymentCard,
     PaymentStatus,
+    InvitationStatus,
     Review,
     OfferStatus,
     ServiceCategorySLA,
@@ -28,6 +29,7 @@ from app.models import (
     UserRole,
     Vehicle,
     Workshop,
+    WorkshopInvitation,
 )
 from app.utils.security import hash_password
 
@@ -466,6 +468,67 @@ def add_demo_offers(
         db.add(offer)
 
 
+def _haversine_km(lat1, lon1, lat2, lon2) -> float:
+    import math
+    r = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def seed_invitations(db, pending_incidents: list[Incident], workshops: list[Workshop]) -> None:
+    """Crea invitaciones demo para incidentes PENDING (bandeja del taller).
+
+    Las pendientes tienen expiracion futura (siguen vivas en la defensa); ademas
+    se crean algunas ya respondidas/expiradas para mostrar la politica de
+    reputacion en el historial.
+    """
+    now = datetime.now(timezone.utc)
+    for incident in pending_incidents:
+        category = incident.category.value
+        compatible = [
+            w for w in workshops
+            if category in (w.services or "") or "other" in (w.services or "")
+        ]
+        compatible.sort(key=lambda w: _haversine_km(incident.latitude, incident.longitude, w.latitude, w.longitude))
+        chosen = compatible[:4]
+        for idx, w in enumerate(chosen):
+            dist = round(_haversine_km(incident.latitude, incident.longitude, w.latitude, w.longitude), 2)
+            # La mayoria quedan PENDING con expiracion futura; algunas demo de historial.
+            if idx == 0 and incident.id % 4 == 0:
+                status = InvitationStatus.ACCEPTED
+                expires = now + timedelta(minutes=30)
+                responded = now - timedelta(minutes=2)
+                rt = 45
+                w.invitations_accepted += 1
+                w.reputation_points = min(200, w.reputation_points + 5)
+            elif idx == 1 and incident.id % 5 == 0:
+                status = InvitationStatus.EXPIRED
+                expires = now - timedelta(minutes=5)
+                responded = None
+                rt = None
+                w.invitations_ignored += 1
+                w.reputation_points = max(0, w.reputation_points - 10)
+            else:
+                status = InvitationStatus.PENDING
+                expires = now + timedelta(minutes=random.randint(10, 90))
+                responded = None
+                rt = None
+            w.invitations_sent += 1
+            db.add(WorkshopInvitation(
+                incident_id=incident.id,
+                workshop_id=w.id,
+                tenant_id=w.tenant_id,
+                status=status,
+                distance_km=dist,
+                sent_at=now,
+                expires_at=expires,
+                responded_at=responded,
+                response_time_seconds=rt,
+            ))
+
+
 def add_payment_and_review(db, incident: Incident, client: User, workshop: Workshop) -> None:
     if incident.final_cost and not db.query(Payment).filter(Payment.incident_id == incident.id).first():
         db.add(
@@ -897,6 +960,7 @@ def run_seed() -> None:
                 )
 
         completed_incidents = []
+        pending_incidents = []
         for client, vehicle, description, category, priority, status, lat, lng, address, workshop, technician, cost in incident_specs:
             incident = get_or_create_incident(
                 db,
@@ -920,9 +984,13 @@ def run_seed() -> None:
             add_demo_offers(db, incident, workshops, technicians_by_workshop)
             if status == IncidentStatus.COMPLETED and workshop:
                 completed_incidents.append((incident, client, workshop))
+            if status == IncidentStatus.PENDING:
+                pending_incidents.append(incident)
 
         for incident, client, workshop in completed_incidents:
             add_payment_and_review(db, incident, client, workshop)
+
+        seed_invitations(db, pending_incidents, workshops)
 
         db.add(
             Notification(
