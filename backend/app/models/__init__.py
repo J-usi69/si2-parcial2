@@ -2,6 +2,7 @@ from app.models.chat import ChatMessage
 from app.models.evidence import Evidence, EvidenceType
 from app.models.review import Review
 from app.models.incident import Incident, IncidentCategory, IncidentPriority, IncidentStatus
+from app.models.invitation import InvitationStatus, WorkshopInvitation
 from app.models.notification import Notification, NotificationType
 from app.models.offer import OfferStatus, ServiceOffer
 from app.models.payment import Payment, PaymentCard, PaymentStatus
@@ -18,6 +19,7 @@ __all__ = [
     "Workshop", "Technician",
     "Vehicle",
     "Incident", "IncidentCategory", "IncidentPriority", "IncidentStatus",
+    "WorkshopInvitation", "InvitationStatus",
     "Evidence", "EvidenceType",
     "StatusHistory",
     "Payment", "PaymentCard", "PaymentStatus",

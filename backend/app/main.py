@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -11,10 +14,38 @@ from app.utils.security import get_current_user_from_token
 #   alembic upgrade head
 # (ya no se usa Base.metadata.create_all para evitar mezclar con migraciones)
 
+
+async def _invitation_expirer(interval_seconds: int = 30) -> None:
+    """Tarea de fondo: vence invitaciones sin respuesta y penaliza reputacion."""
+    from app.database import SessionLocal
+    from app.services.notification_service import expire_stale_invitations
+
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            db = SessionLocal()
+            try:
+                expire_stale_invitations(db)
+            finally:
+                db.close()
+        except Exception:
+            pass
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(_invitation_expirer())
+    try:
+        yield
+    finally:
+        task.cancel()
+
+
 app = FastAPI(
     title="RescateYa — Plataforma de Emergencias Vehiculares",
     description="API para la gestion inteligente de emergencias vehiculares",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 # CORS

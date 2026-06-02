@@ -10,7 +10,7 @@ from app.config import settings
 from app.database import SessionLocal
 from app.models.evidence import Evidence, EvidenceType
 from app.models.incident import Incident, IncidentCategory, IncidentPriority
-from app.services.notification_service import notify_compatible_workshops
+from app.services.notification_service import invite_workshops_for_incident
 
 
 PRIORITY_MAP = {
@@ -115,9 +115,9 @@ async def process_incident(incident_id: int, db: Session):
             )
             incident.ai_summary = classification.get("resumen", "")
             incident.ai_diagnosis = classification.get("diagnostico_preliminar", "")
-            notify_compatible_workshops(db, incident)
+            invite_workshops_for_incident(db, incident)
             db.commit()
         except Exception as e:
             incident.ai_summary = f"Error en clasificacion: {str(e)}"
-            notify_compatible_workshops(db, incident)
+            invite_workshops_for_incident(db, incident)
             db.commit()

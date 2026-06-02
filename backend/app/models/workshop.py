@@ -25,12 +25,19 @@ class Workshop(Base):
     rating: Mapped[float] = mapped_column(Float, default=0.0)
     total_ratings: Mapped[int] = mapped_column(Integer, default=0)
     commission_rate: Mapped[float] = mapped_column(Float, default=0.10)
+    # Reputacion del taller frente a invitaciones (politica de puntos).
+    reputation_points: Mapped[int] = mapped_column(Integer, default=100)
+    invitations_sent: Mapped[int] = mapped_column(Integer, default=0)
+    invitations_accepted: Mapped[int] = mapped_column(Integer, default=0)
+    invitations_ignored: Mapped[int] = mapped_column(Integer, default=0)
+    avg_response_seconds: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     tenant: Mapped["Tenant"] = relationship(back_populates="workshop")
     user: Mapped["User"] = relationship(back_populates="workshop")
     technicians: Mapped[list["Technician"]] = relationship(back_populates="workshop")
     incidents: Mapped[list["Incident"]] = relationship(back_populates="workshop")
+    invitations: Mapped[list["WorkshopInvitation"]] = relationship(back_populates="workshop")
 
 
 class Technician(Base):
