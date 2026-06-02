@@ -3,18 +3,27 @@ from typing import Any
 
 from app.config import settings
 
-# Modelos de respaldo: si el principal esta saturado (503 UNAVAILABLE), se
-# intenta con el siguiente. Suelen tener disponibilidad independiente.
-_FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-flash-latest"]
+# Orden de modelos a intentar. Se prueba el principal y, si esta saturado o sin
+# cuota, el siguiente (cada modelo tiene limites de free-tier independientes).
+# gemini-2.0-flash es rapido y con mayor cuota gratuita para tareas NL->SQL.
+_FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-flash-latest"]
+
+# Solo reintentamos errores de servidor TRANSITORIOS (no 429: la cuota no se
+# recupera en segundos, reintentarla solo alarga la espera inutilmente).
+_TRANSIENT_RETRY_CODES = [500, 502, 503]
 
 
 class AIOverloadedError(RuntimeError):
-    """El servicio de IA esta saturado/no disponible temporalmente (503/429)."""
+    """IA saturada, sin cuota o con timeout temporal (429/503/504...)."""
 
 
 def _is_overload(exc: Exception) -> bool:
     msg = str(exc).lower()
-    return any(s in msg for s in ("503", "unavailable", "overloaded", "high demand", "429", "resource_exhausted"))
+    return any(s in msg for s in (
+        "429", "resource_exhausted", "quota",
+        "503", "unavailable", "overloaded", "high demand",
+        "504", "deadline",
+    ))
 
 
 def generate_json(prompt: str, image_bytes: bytes | None = None, mime_type: str = "image/jpeg") -> dict[str, Any]:
@@ -24,17 +33,14 @@ def generate_json(prompt: str, image_bytes: bytes | None = None, mime_type: str 
     except Exception as exc:
         raise RuntimeError("google-genai no esta instalado. Ejecuta pip install -r requirements.txt") from exc
 
-    # Acotar reintentos y timeout para que NUNCA se quede colgado >~25s.
-    # Sin esto, el SDK reintenta con backoff largo ante 503 y la peticion
-    # puede tardar 45s+ antes de fallar.
+    # Timeout corto por intento y SIN reintentos del SDK: la resiliencia la da
+    # el fallback entre modelos (abajo), cada uno con cuota independiente. Asi
+    # cada modelo sin cuota falla en ~1s en vez de hacer backoff largo.
     http_options = types.HttpOptions(
-        timeout=20_000,  # ms por intento
+        timeout=10_000,  # ms por intento (corta cualquier cuelgue)
         retry_options=types.HttpRetryOptions(
-            attempts=3,
-            initial_delay=1.0,
-            max_delay=4.0,
-            exp_base=2.0,
-            http_status_codes=[429, 500, 502, 503, 504],
+            attempts=1,
+            http_status_codes=_TRANSIENT_RETRY_CODES,
         ),
     )
     client = genai.Client(api_key=settings.GEMINI_API_KEY, http_options=http_options)
@@ -43,16 +49,14 @@ def generate_json(prompt: str, image_bytes: bytes | None = None, mime_type: str 
     if image_bytes:
         contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
 
-    # Desactivar "thinking" reduce la latencia en tareas deterministas
-    # como NL->SQL o clasificacion (no necesitan razonamiento extendido).
+    # Desactivar "thinking" reduce la latencia en tareas deterministas.
     config_kwargs: dict[str, Any] = {"response_mime_type": "application/json"}
     try:
         config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
-    except Exception:  # noqa: BLE001  -- modelos sin soporte de thinking
+    except Exception:  # noqa: BLE001
         pass
     config = types.GenerateContentConfig(**config_kwargs)
 
-    # Probar el modelo principal y, si esta saturado, los de respaldo.
     models_to_try = [settings.GEMINI_MODEL] + [m for m in _FALLBACK_MODELS if m != settings.GEMINI_MODEL]
     last_overload: Exception | None = None
 
@@ -62,13 +66,13 @@ def generate_json(prompt: str, image_bytes: bytes | None = None, mime_type: str 
         except Exception as exc:  # noqa: BLE001
             if _is_overload(exc):
                 last_overload = exc
-                continue  # probar el siguiente modelo
+                continue  # probar el siguiente modelo (cuota/saturacion independiente)
             raise
         if not response.text:
             raise RuntimeError("Gemini no devolvio contenido")
         return json.loads(response.text)
 
     raise AIOverloadedError(
-        "El modelo de IA esta saturado (alta demanda) en este momento. "
-        "Intenta de nuevo en unos segundos."
+        "El servicio de IA alcanzo su limite de uso (cuota del plan gratuito) o esta "
+        "saturado. Espera ~1 minuto y reintenta, o usa una API key con facturacion."
     ) from last_overload
