@@ -52,6 +52,9 @@ declare const window: any;
           <div>
             <h2 class="result-title">{{ r.title }}</h2>
             <span class="result-count">{{ r.row_count }} fila(s)</span>
+            <span class="preview-note" *ngIf="r.rows.length > previewLimit">
+              · Vista previa de {{ previewLimit }}; exporta para ver todas
+            </span>
           </div>
           <div class="export-actions" *ngIf="r.columns.length">
             <button class="exp xlsx" (click)="exportAs('xlsx')" [disabled]="exporting"><span class="material-symbols-rounded">table_view</span> Excel</button>
@@ -69,11 +72,14 @@ declare const window: any;
           <table>
             <thead><tr><th *ngFor="let col of r.columns">{{ col }}</th></tr></thead>
             <tbody>
-              <tr *ngFor="let row of r.rows">
+              <tr *ngFor="let row of previewRows">
                 <td *ngFor="let cell of row">{{ cell }}</td>
               </tr>
             </tbody>
           </table>
+          <p class="more-rows" *ngIf="r.rows.length > previewLimit">
+            + {{ r.rows.length - previewLimit }} fila(s) más. Usa Excel/Word/PDF para el reporte completo.
+          </p>
         </div>
         <ng-template #noRows><p class="muted">La consulta no devolvio resultados.</p></ng-template>
       </div>
@@ -102,6 +108,8 @@ declare const window: any;
     .result-head { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; margin-bottom:.8rem; }
     .result-title { font-size:1.15rem; font-weight:800; color:var(--color-text-primary); }
     .result-count { font-size:.8rem; color:var(--color-text-tertiary); }
+    .preview-note { font-size:.78rem; color:var(--color-primary); font-weight:600; }
+    .more-rows { padding:.6rem .7rem; font-size:.8rem; color:var(--color-text-tertiary); background:var(--color-surface-alt); border-top:1px solid var(--color-border); margin:0; }
     .export-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
     .exp { display:inline-flex; align-items:center; gap:.3rem; padding:.45rem .8rem; border-radius:var(--radius-md); font-weight:700; font-size:.82rem; color:#fff; }
     .exp .material-symbols-rounded { font-size:1.05rem; }
@@ -127,7 +135,15 @@ export class ReportsAiComponent implements OnDestroy {
   result: ReportResult | null = null;
   recording = false;
 
+  // La vista previa solo renderiza estas filas para no congelar el DOM
+  // (una consulta puede traer hasta 500 filas; el export las incluye todas).
+  readonly previewLimit = 20;
+
   private recognition: any = null;
+
+  get previewRows(): (string | number | null)[][] {
+    return this.result ? this.result.rows.slice(0, this.previewLimit) : [];
+  }
 
   examples = [
     'Incidentes por categoria de mayor a menor',
