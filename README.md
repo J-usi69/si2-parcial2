@@ -25,7 +25,7 @@ Luego abrir:
 
 ## Despliegue en Google Compute Engine
 
-El despliegue de produccion para el proyecto GCP `asistecar` esta preparado con Docker Compose y GitHub Actions.
+El despliegue de produccion para el proyecto GCP `rescateya` esta preparado con Docker Compose y GitHub Actions.
 
 Guia completa: [deploy/gce/README.md](deploy/gce/README.md)
 
@@ -36,7 +36,7 @@ Produccion actual:
 - Web: [http://34.136.223.87](http://34.136.223.87)
 - Health backend: [http://34.136.223.87/health](http://34.136.223.87/health)
 - API docs: [http://34.136.223.87/docs](http://34.136.223.87/docs)
-- Dominio: [https://asistecar.net](https://asistecar.net) y [https://www.asistecar.net](https://www.asistecar.net) con HTTPS automatico.
+- Dominio: [https://rescateya.net](https://rescateya.net) y [https://www.rescateya.net](https://www.rescateya.net) con HTTPS automatico.
 
 ## Requisitos Previos
 

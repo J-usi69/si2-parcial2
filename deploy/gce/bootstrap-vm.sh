@@ -21,8 +21,8 @@ sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plug
 
 sudo systemctl enable docker
 sudo systemctl start docker
-sudo mkdir -p /opt/asistecar
-sudo chown -R "$USER":"$USER" /opt/asistecar
+sudo mkdir -p /opt/rescateya
+sudo chown -R "$USER":"$USER" /opt/rescateya
 
 if ! groups "$USER" | grep -q docker; then
   sudo usermod -aG docker "$USER"

@@ -1,4 +1,4 @@
-asistecar.net, www.asistecar.net {
+:80 {
     encode zstd gzip
 
     request_body {

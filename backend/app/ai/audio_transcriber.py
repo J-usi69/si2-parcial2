@@ -10,7 +10,7 @@ async def transcribe_audio(file_path: str) -> str:
 
     mime_type = mimetypes.guess_type(file_path)[0] or "audio/mp4"
     prompt = (
-        "Transcribe este audio de una emergencia vehicular para AsisteCar. "
+        "Transcribe este audio de una emergencia vehicular para RescateYa. "
         "El usuario puede hablar en espanol con ruido de calle. "
         "Responde solo JSON valido con el campo transcripcion. "
         "Si no se entiende, usa una cadena vacia."
@@ -30,7 +30,7 @@ async def extract_key_info(transcription: str) -> dict:
         }
 
     prompt = (
-        "Eres un asistente que analiza descripciones de emergencias vehiculares para AsisteCar. "
+        "Eres un asistente que analiza descripciones de emergencias vehiculares para RescateYa. "
         "Extrae informacion clave y responde solo JSON valido con los campos: "
         "problema (str), urgencia (baja/media/alta/critica), detalles_adicionales (str), "
         "categoria (battery/tire/crash/engine/keys/other/uncertain).\n\n"

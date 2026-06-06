@@ -10,7 +10,7 @@ async def analyze_vehicle_image(image_path: str) -> dict:
 
     mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
     prompt = (
-        "Eres un experto en mecanica automotriz que analiza imagenes para AsisteCar. "
+        "Eres un experto en mecanica automotriz que analiza imagenes para RescateYa. "
         "Identifica danos visibles, tipo de problema y gravedad. Pon atencion especial a llantas bajas, "
         "llantas reventadas, neumativos desinflados, rines danados, golpes visibles, fugas, humo o partes rotas. "
         "Si la imagen muestra una llanta desinflada o aplastada contra el piso, clasifica categoria como tire. "

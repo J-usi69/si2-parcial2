@@ -84,7 +84,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/asistecar.png
+    - assets/rescateya.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

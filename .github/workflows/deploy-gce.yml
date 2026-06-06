@@ -13,15 +13,15 @@ on:
   workflow_dispatch:
 
 env:
-  PROJECT_ID: asistecar
-  RELEASE_ARCHIVE: asistecar-release.tar.gz
-  REMOTE_RELEASE_ARCHIVE: /tmp/asistecar-release-${{ github.sha }}.tar.gz
-  REMOTE_ENV_FILE: /tmp/asistecar-${{ github.sha }}.env.production
-  REMOTE_FIREBASE_CREDENTIALS_FILE: /tmp/asistecar-firebase-${{ github.sha }}.json
+  PROJECT_ID: intense-glow-498418-f8
+  RELEASE_ARCHIVE: rescateya-release.tar.gz
+  REMOTE_RELEASE_ARCHIVE: /tmp/rescateya-release-${{ github.sha }}.tar.gz
+  REMOTE_ENV_FILE: /tmp/rescateya-${{ github.sha }}.env.production
+  REMOTE_FIREBASE_CREDENTIALS_FILE: /tmp/rescateya-firebase-${{ github.sha }}.json
 
 jobs:
   deploy:
-    name: Deploy AsisteCar
+    name: Deploy RescateYa
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -44,8 +44,8 @@ jobs:
       - name: Create deployment environment file
         run: |
           cat > .env.production <<'EOF'
-          POSTGRES_DB=asistecar
-          POSTGRES_USER=asistecar
+          POSTGRES_DB=rescateya
+          POSTGRES_USER=rescateya
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           SECRET_KEY=${{ secrets.SECRET_KEY }}
           ACCESS_TOKEN_EXPIRE_MINUTES=1440
@@ -101,16 +101,16 @@ jobs:
             --quiet \
             --command '
               set -euo pipefail
-              sudo mkdir -p /opt/asistecar
-              sudo rm -rf /opt/asistecar/backend /opt/asistecar/frontend /opt/asistecar/deploy /opt/asistecar/docker-compose.prod.yml
-              sudo tar -xzf '${REMOTE_RELEASE_ARCHIVE}' -C /opt/asistecar
-              sudo mv '${REMOTE_ENV_FILE}' /opt/asistecar/.env.production
-              sudo mkdir -p /opt/asistecar/secrets
-              sudo mv '${REMOTE_FIREBASE_CREDENTIALS_FILE}' /opt/asistecar/secrets/firebase-credentials.json
-              sudo chmod 600 /opt/asistecar/secrets/firebase-credentials.json
+              sudo mkdir -p /opt/rescateya
+              sudo rm -rf /opt/rescateya/backend /opt/rescateya/frontend /opt/rescateya/deploy /opt/rescateya/docker-compose.prod.yml
+              sudo tar -xzf '${REMOTE_RELEASE_ARCHIVE}' -C /opt/rescateya
+              sudo mv '${REMOTE_ENV_FILE}' /opt/rescateya/.env.production
+              sudo mkdir -p /opt/rescateya/secrets
+              sudo mv '${REMOTE_FIREBASE_CREDENTIALS_FILE}' /opt/rescateya/secrets/firebase-credentials.json
+              sudo chmod 600 /opt/rescateya/secrets/firebase-credentials.json
               rm -f '${REMOTE_RELEASE_ARCHIVE}'
-              sudo chown -R $USER:$USER /opt/asistecar
-              cd /opt/asistecar
+              sudo chown -R $USER:$USER /opt/rescateya
+              cd /opt/rescateya
               sudo docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
               sudo docker image prune -f
               sudo docker compose --env-file .env.production -f docker-compose.prod.yml ps

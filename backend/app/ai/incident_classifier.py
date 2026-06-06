@@ -16,7 +16,7 @@ async def classify_incident(evidences: list[dict]) -> dict:
             evidence_summary += f"\nAnalisis de imagen: {ev.get('ai_analysis', '')}"
 
     prompt = (
-        "Eres un sistema de clasificacion de emergencias vehiculares para AsisteCar. "
+        "Eres un sistema de clasificacion de emergencias vehiculares para RescateYa. "
         "Analiza texto, transcripciones y analisis de imagenes. Si la evidencia indica llanta desinflada, "
         "pinchada, reventada, aplastada o problema de neumatico, usa categoria tire. "
         "Si la evidencia indica auto que no enciende, bateria descargada o luces debiles, usa battery. "

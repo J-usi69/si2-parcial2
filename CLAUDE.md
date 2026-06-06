@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AsisteCar is a vehicle emergency assistance platform. A driver reports a breakdown via Flutter mobile app → the backend uses AI (OpenAI Whisper + GPT-4 Vision + Google Gemini/Vertex AI) to classify it → nearby workshops receive the case on the Angular web panel → workshops submit offers → the client compares and accepts one → a technician is dispatched → service is completed → client pays (simulated) → client reviews the workshop.
+RescateYa is a vehicle emergency assistance platform. A driver reports a breakdown via Flutter mobile app → the backend uses AI (OpenAI Whisper + GPT-4 Vision + Google Gemini/Vertex AI) to classify it → nearby workshops receive the case on the Angular web panel → workshops submit offers → the client compares and accepts one → a technician is dispatched → service is completed → client pays (simulated) → client reviews the workshop.
 
 **Monorepo:** `backend/` (FastAPI) + `frontend/` (Angular 21) + `mobile/` (Flutter)
 
@@ -15,7 +15,7 @@ AsisteCar is a vehicle emergency assistance platform. A driver reports a breakdo
 | Client / Driver | Flutter mobile only |
 | Technician | Flutter mobile only |
 | Workshop admin | Angular web only |
-| Platform admin (AsisteCar) | Angular web only |
+| Platform admin (RescateYa) | Angular web only |
 
 Do not build web views for clients or technicians as a primary flow. Do not build mobile views for workshop/platform admin.
 
@@ -76,7 +76,7 @@ Multitenancy = each Workshop is a Tenant (1:1); tenant-scoped tables carry
 
 | Role | Email | Password |
 |------|-------|----------|
-| Platform admin | admin@asistecar.com | 12345678* |
+| Platform admin | admin@rescateya.bo | 12345678* |
 | Workshop | contacto@elpiston.com | 12345678* |
 | Client | carlos.mendez@email.com | 12345678* |
 | Technician | luis.roca@elpiston.com | 12345678* |

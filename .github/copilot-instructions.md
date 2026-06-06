@@ -1,8 +1,8 @@
-# AsisteCar - Instrucciones del Proyecto
+# RescateYa - Instrucciones del Proyecto
 
 ## Contexto Del Proyecto
 
-AsisteCar es una plataforma de auxilio mecanico vehicular. El problema central es conectar a conductores que sufren un percance, falla mecanica o accidente con talleres y mecanicos capaces de prestar asistencia.
+RescateYa es una plataforma de auxilio mecanico vehicular. El problema central es conectar a conductores que sufren un percance, falla mecanica o accidente con talleres y mecanicos capaces de prestar asistencia.
 
 El sistema debe permitir que una persona reporte su situacion desde una aplicacion movil y que talleres mecanicos reciban, evaluen y gestionen esas solicitudes desde una aplicacion web.
 
@@ -10,7 +10,7 @@ El sistema debe permitir que una persona reporte su situacion desde una aplicaci
 
 - Backend: API en Python con FastAPI.
 - Base de datos: PostgreSQL.
-- Web: Angular solo para administradores de talleres y administradores de plataforma AsisteCar.
+- Web: Angular solo para administradores de talleres y administradores de plataforma RescateYa.
 - Movil: app para clientes/conductores y tecnicos/mecanicos. El requerimiento academico indica React Native para clientes/conductores; el repositorio actual contiene una app movil en Flutter, asi que se debe continuar en Flutter salvo que el usuario pida explicitamente una migracion.
 - Despliegue esperado: AWS o Microsoft Azure.
 
@@ -19,7 +19,7 @@ La separacion correcta de producto es:
 - Cliente/conductor: usa la app movil para reportar emergencias, enviar ubicacion, audio, fotos, recibir ofertas, seguir el servicio y calificar.
 - Tecnico/mecanico: usa la app movil para ver trabajos asignados, compartir ubicacion GPS, abrir rutas, cambiar estados del servicio y subir evidencias de atencion.
 - Taller/admin de taller: usa la web Angular para gestionar solicitudes, ofertas, tecnicos, asignaciones, pagos, historial y reportes operativos.
-- Admin plataforma AsisteCar: usa la web Angular para administrar usuarios, talleres, incidentes, comisiones, reportes y monitoreo general.
+- Admin plataforma RescateYa: usa la web Angular para administrar usuarios, talleres, incidentes, comisiones, reportes y monitoreo general.
 
 No crear paneles web para clientes o tecnicos como solucion principal. Si existe alguna vista web temporal para pruebas, no debe tratarse como experiencia final del producto.
 

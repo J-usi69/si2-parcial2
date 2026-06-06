@@ -3,8 +3,8 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-asistecar}
-      POSTGRES_USER: ${POSTGRES_USER:-asistecar}
+      POSTGRES_DB: ${POSTGRES_DB:-rescateya}
+      POSTGRES_USER: ${POSTGRES_USER:-rescateya}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -19,10 +19,10 @@ services:
       context: ./backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-asistecar}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}@db:5432/${POSTGRES_DB:-asistecar}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-rescateya}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requerido}@db:5432/${POSTGRES_DB:-rescateya}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY requerido}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
-      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-asistecar}
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-intense-glow-498418-f8}
       GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-us-central1}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       UPLOAD_DIR: /app/uploads

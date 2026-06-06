@@ -145,7 +145,7 @@ def get_contextual_help(data: AssistantContextRequest, user: User) -> AssistantC
     user_question = (data.question or "Que debo hacer en esta pantalla?").strip()
 
     prompt = f"""
-Eres el Asistente IA contextual de AsisteCar, una plataforma de auxilio mecanico vehicular.
+Eres el Asistente IA contextual de RescateYa, una plataforma de auxilio mecanico vehicular.
 Ayudas al usuario a usar la app segun su rol y la pantalla actual. No inventes datos que no esten en el contexto.
 Responde en espanol claro, breve y accionable. No pidas claves, contrasenas ni datos sensibles.
 Si faltan datos, indica el siguiente paso mas probable.
