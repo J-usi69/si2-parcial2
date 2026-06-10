@@ -79,6 +79,8 @@ class Vehicle {
   );
 
   Map<String, dynamic> toJson() => {
+    'id': id,
+    'user_id': userId,
     'brand': brand,
     'model': model,
     'year': year,

@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
@@ -56,8 +58,21 @@ class _NewEmergencyScreenState extends State<NewEmergencyScreen> {
   Future<void> _loadVehicles() async {
     try {
       final vehicles = await ApiService.getVehicles();
+      // Cachear para uso offline.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_vehicles', jsonEncode(vehicles.map((v) => v.toJson()).toList()));
       if (mounted) setState(() => _vehicles = vehicles);
-    } catch (_) {}
+    } catch (_) {
+      // Sin conexion: cargar desde cache local.
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString('cached_vehicles');
+        if (raw != null && mounted) {
+          final list = (jsonDecode(raw) as List).map((e) => Vehicle.fromJson(e as Map<String, dynamic>)).toList();
+          setState(() => _vehicles = list);
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> _getLocation() async {
