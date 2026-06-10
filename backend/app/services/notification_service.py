@@ -76,7 +76,7 @@ def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-def invite_workshops_for_incident(db, incident, max_invites: int = 5, radius_km: float = 30.0) -> int:
+def invite_workshops_for_incident(db, incident, max_invites: int = 5, radius_km: float = 500.0) -> int:
     """Invita (no a todos) a los talleres mas adecuados para una emergencia.
 
     Criterios: especialidad compatible con la categoria, cercania (radio) y
@@ -99,23 +99,32 @@ def invite_workshops_for_incident(db, incident, max_invites: int = 5, radius_km:
     workshops = db.query(Workshop).filter(Workshop.is_available == True).all()  # noqa: E712
 
     scored = []
+    inc_lat = incident.latitude or 0.0
+    inc_lon = incident.longitude or 0.0
     for workshop in workshops:
         services = {s.strip() for s in (workshop.services or "").split(",") if s.strip()}
         is_match = category == IncidentCategory.UNCERTAIN.value or category in services or "other" in services
         if not is_match:
             continue
-        # Debe tener al menos un tecnico disponible.
-        has_tech = db.query(Technician).filter(
-            Technician.workshop_id == workshop.id, Technician.is_available == True  # noqa: E712
-        ).first()
-        if not has_tech:
-            continue
-        distance = _distance_km(incident.latitude, incident.longitude, workshop.latitude, workshop.longitude)
+        distance = _distance_km(inc_lat, inc_lon, workshop.latitude or 0.0, workshop.longitude or 0.0)
+        # Si el incidente no tiene GPS real (0,0) tratamos distancia como 0.
+        if inc_lat == 0.0 and inc_lon == 0.0:
+            distance = 0.0
         if distance > radius_km:
             continue
         distance_factor = max(0.0, 1 - distance / radius_km)
         rank = distance_factor * 0.6 + reputation_factor(workshop) * 0.4
         scored.append((workshop, distance, rank))
+
+    # Fallback: si ningún taller quedó dentro del radio, invitar a todos.
+    if not scored:
+        for workshop in workshops:
+            services = {s.strip() for s in (workshop.services or "").split(",") if s.strip()}
+            is_match = category == IncidentCategory.UNCERTAIN.value or category in services or "other" in services
+            if not is_match:
+                continue
+            distance = _distance_km(inc_lat, inc_lon, workshop.latitude or 0.0, workshop.longitude or 0.0)
+            scored.append((workshop, distance, reputation_factor(workshop)))
 
     # Mejor ranking primero; invitar solo a los top N.
     scored.sort(key=lambda item: item[2], reverse=True)
