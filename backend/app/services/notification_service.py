@@ -30,6 +30,44 @@ def send_push_to_user(db, user_id: int, title: str, body: str, data: dict | None
         send_push_notification(user.firebase_token, title, body, data)
 
 
+def notify_admins_new_incident(db, incident) -> None:
+    """Create a DB notification + WebSocket event for every admin user."""
+    from app.models.notification import Notification, NotificationType
+    from app.models.user import User, UserRole
+
+    category = incident.category.value if incident.category else "uncertain"
+    title = "Nueva emergencia recibida"
+    message = f"Solicitud #{incident.id}: categoría {category}. Revisa los incidentes pendientes."
+
+    admins = db.query(User).filter(User.role == UserRole.ADMIN, User.is_active == True).all()  # noqa: E712
+    for admin in admins:
+        exists = db.query(Notification).filter(
+            Notification.user_id == admin.id,
+            Notification.incident_id == incident.id,
+            Notification.type == NotificationType.NEW_INCIDENT,
+        ).first()
+        if exists:
+            continue
+        db.add(Notification(
+            user_id=admin.id,
+            incident_id=incident.id,
+            title=title,
+            message=message,
+            type=NotificationType.NEW_INCIDENT,
+        ))
+
+    db.commit()
+
+    for admin in admins:
+        notify_user_realtime(admin.id, {
+            "type": "new_incident",
+            "incident_id": incident.id,
+            "category": category,
+            "title": title,
+            "message": message,
+        })
+
+
 def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     radius = 6371.0
     dlat = math.radians(lat2 - lat1)
