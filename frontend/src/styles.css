@@ -104,6 +104,12 @@
   [data-theme="dark"] body { background-color: #0d1117; color: #e6edf3; }
   h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); }
 
+  /* Opciones de <select> en modo oscuro — Chrome/Edge en Windows respeta esto */
+  [data-theme="dark"] select option {
+    background-color: #1e293b;
+    color: #f1f5f9;
+  }
+
   /* Lucide icons — inline SVG via lucide-angular */
   lucide-angular {
     display: inline-block;

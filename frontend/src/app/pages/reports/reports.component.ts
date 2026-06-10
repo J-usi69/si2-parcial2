@@ -44,7 +44,7 @@ interface TechStat {
         <div class="flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-hero-line dark:bg-hero-soft">
           <app-icon name="calendar_today" [size]="18" class="text-slate-400" />
           <select [(ngModel)]="selectedPeriod" (ngModelChange)="onPeriodChange()"
-                  class="cursor-pointer border-0 bg-transparent text-sm font-semibold text-slate-700 outline-none dark:text-slate-200">
+                  class="cursor-pointer border-0 bg-transparent text-sm font-semibold text-slate-700 outline-none dark:bg-hero-soft dark:text-slate-200 dark:[color-scheme:dark]">
             <option value="7">Últimos 7 días</option>
             <option value="30">Últimos 30 días</option>
             <option value="90">Últimos 3 meses</option>

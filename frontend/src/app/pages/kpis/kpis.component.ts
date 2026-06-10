@@ -49,7 +49,7 @@ const STATUS_ES: Record<string, string> = {
                class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-white/8 dark:bg-hero-soft">
             <app-icon name="filter_alt" [size]="18" class="text-slate-400 dark:text-white/40" />
             <select [(ngModel)]="selectedTenant" (ngModelChange)="load()" aria-label="Filtrar por taller"
-                    class="max-w-[200px] cursor-pointer border-0 bg-transparent text-sm font-semibold text-slate-700 outline-none dark:text-white dark:[color-scheme:dark]">
+                    class="max-w-[200px] cursor-pointer border-0 bg-transparent text-sm font-semibold text-slate-700 outline-none dark:bg-hero-soft dark:text-white dark:[color-scheme:dark]">
               <option [ngValue]="null">Toda la plataforma</option>
               <option *ngFor="let w of workshops" [ngValue]="w.tenant_id">{{ w.name }}</option>
             </select>
