@@ -33,6 +33,7 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
   List<PaymentCard> _cards = [];
   StreamSubscription<Map<String, dynamic>>? _wsSub;
   Timer? _locationRefreshTimer;
+  final Completer<GoogleMapController> _mapController = Completer();
 
   @override
   void initState() {
@@ -67,6 +68,24 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
       final inc = await ApiService.getIncident(widget.incidentId);
       if (!mounted) return;
       setState(() => _incident = inc);
+      if (inc.technicianLatitude != null &&
+          inc.technicianLongitude != null &&
+          _mapController.isCompleted) {
+        final ctrl = await _mapController.future;
+        final techPos = LatLng(inc.technicianLatitude!, inc.technicianLongitude!);
+        final incPos = LatLng(inc.latitude, inc.longitude);
+        final bounds = LatLngBounds(
+          southwest: LatLng(
+            math.min(techPos.latitude, incPos.latitude) - 0.004,
+            math.min(techPos.longitude, incPos.longitude) - 0.004,
+          ),
+          northeast: LatLng(
+            math.max(techPos.latitude, incPos.latitude) + 0.004,
+            math.max(techPos.longitude, incPos.longitude) + 0.004,
+          ),
+        );
+        ctrl.animateCamera(CameraUpdate.newLatLngBounds(bounds, 60));
+      }
     } catch (_) {
       if (!silent && mounted) {
         AppSnackBar.error(context, 'No se pudo actualizar la ubicacion');
@@ -555,138 +574,232 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
     final etaMin = hasTechnicianLocation
         ? math.max(1, (km / 30 * 60).round())
         : 0;
-    return Container(
-      decoration: BoxDecoration(
-        color: context.appColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 20,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.map_rounded,
-                    color: AppColors.warning,
-                    size: 18,
+
+    return GestureDetector(
+      onTap: hasTechnicianLocation
+          ? () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => _TrackingScreen(
+                    incident: inc,
+                    incidentId: widget.incidentId,
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Ubicación',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: context.appColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+              )
+          : null,
+      child: Container(
+        decoration: BoxDecoration(
+          color: context.appColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 20,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
             ),
-          ),
-          SizedBox(
-            height: 200,
-            child: GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: hasTechnicianLocation ? technicianPos : pos,
-                zoom: hasTechnicianLocation ? 13 : 15,
-              ),
-              markers: {
-                Marker(
-                  markerId: const MarkerId('incident'),
-                  position: pos,
-                  infoWindow: InfoWindow(
-                    title: 'Incidente #${inc.id}',
-                    snippet: inc.address ?? 'Ubicación del incidente',
-                  ),
-                ),
-                if (hasTechnicianLocation)
-                  Marker(
-                    markerId: const MarkerId('technician'),
-                    position: technicianPos,
-                    icon: BitmapDescriptor.defaultMarkerWithHue(
-                      BitmapDescriptor.hueAzure,
-                    ),
-                    infoWindow: InfoWindow(
-                      title: inc.technicianName ?? 'Tecnico en camino',
-                      snippet: 'Ultima ubicacion compartida',
-                    ),
-                  ),
-              },
-              polylines: {
-                if (hasTechnicianLocation)
-                  Polyline(
-                    polylineId: const PolylineId('technician-route'),
-                    points: [technicianPos, pos],
-                    color: AppColors.primary,
-                    width: 4,
-                  ),
-              },
-              myLocationEnabled: false,
-              zoomControlsEnabled: false,
-              mapToolbarEnabled: false,
-              liteModeEnabled: true,
-            ),
-          ),
-          if (hasTechnicianLocation)
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.navigation_rounded,
-                      color: AppColors.primary,
-                      size: 20,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        '${inc.technicianName ?? 'El tecnico'} viene en camino · ETA ~$etaMin min · ${km.toStringAsFixed(1)} km',
-                        style: TextStyle(
-                          color: context.appColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
+                    child: const Icon(
+                      Icons.map_rounded,
+                      color: AppColors.warning,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Ubicación',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: context.appColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  if (hasTechnicianLocation)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.open_in_full_rounded,
+                            size: 13,
+                            color: AppColors.primary,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'Ver en vivo',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 220,
+              child: Stack(
+                children: [
+                  GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: hasTechnicianLocation ? technicianPos : pos,
+                      zoom: hasTechnicianLocation ? 13 : 15,
+                    ),
+                    onMapCreated: (ctrl) {
+                      if (!_mapController.isCompleted) {
+                        _mapController.complete(ctrl);
+                      }
+                    },
+                    markers: {
+                      Marker(
+                        markerId: const MarkerId('incident'),
+                        position: pos,
+                        infoWindow: InfoWindow(
+                          title: 'Tu ubicación',
+                          snippet: inc.address ?? 'Ubicación del incidente',
+                        ),
+                      ),
+                      if (hasTechnicianLocation)
+                        Marker(
+                          markerId: const MarkerId('technician'),
+                          position: technicianPos,
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueAzure,
+                          ),
+                          infoWindow: InfoWindow(
+                            title: inc.technicianName ?? 'Técnico en camino',
+                            snippet: 'Última ubicación',
+                          ),
+                        ),
+                    },
+                    polylines: {
+                      if (hasTechnicianLocation)
+                        Polyline(
+                          polylineId: const PolylineId('technician-route'),
+                          points: [technicianPos, pos],
+                          color: AppColors.primary,
+                          width: 4,
+                        ),
+                    },
+                    myLocationEnabled: false,
+                    zoomControlsEnabled: false,
+                    mapToolbarEnabled: false,
+                  ),
+                  if (hasTechnicianLocation)
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        height: 52,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.35),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                        child: const Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.touch_app_rounded,
+                                color: Colors.white,
+                                size: 13,
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                'Toca para seguimiento en tiempo real',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            )
-          else if (inc.technicianName != null && inc.status != 'completed')
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Text(
-                '${inc.technicianName} aun no compartio su ubicacion.',
-                style: TextStyle(
-                  color: context.appColors.textTertiary,
-                  fontSize: 12,
-                ),
+                ],
               ),
             ),
-        ],
+            if (hasTechnicianLocation)
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.navigation_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          '${inc.technicianName ?? 'El técnico'} viene en camino · ETA ~$etaMin min · ${km.toStringAsFixed(1)} km',
+                          style: TextStyle(
+                            color: context.appColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (inc.technicianName != null && inc.status != 'completed')
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Text(
+                  '${inc.technicianName} aún no compartió su ubicación.',
+                  style: TextStyle(
+                    color: context.appColors.textTertiary,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     ).animate(delay: 250.ms).fadeIn().moveY(begin: 16, end: 0);
   }
@@ -1522,6 +1635,371 @@ class _IncidentDetailScreenState extends State<IncidentDetailScreen> {
     );
   }
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Pantalla de seguimiento en tiempo real (estilo Uber)
+// ──────────────────────────────────────────────────────────────────────────────
+
+class _TrackingScreen extends StatefulWidget {
+  final Incident incident;
+  final int incidentId;
+
+  const _TrackingScreen({required this.incident, required this.incidentId});
+
+  @override
+  State<_TrackingScreen> createState() => _TrackingScreenState();
+}
+
+class _TrackingScreenState extends State<_TrackingScreen> {
+  late Incident _incident;
+  final Completer<GoogleMapController> _ctrl = Completer();
+  StreamSubscription<Map<String, dynamic>>? _wsSub;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _incident = widget.incident;
+    _wsSub = WebSocketService.instance.notifications.listen((data) {
+      if (data['type'] == 'technician_location_update' &&
+          data['incident_id'] == widget.incidentId) {
+        _refresh();
+      }
+    });
+    _timer = Timer.periodic(const Duration(seconds: 8), (_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _wsSub?.cancel();
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    try {
+      final inc = await ApiService.getIncident(widget.incidentId);
+      if (!mounted) return;
+      setState(() => _incident = inc);
+      await _animateCamera(inc);
+    } catch (_) {}
+  }
+
+  Future<void> _animateCamera(Incident inc) async {
+    if (!_ctrl.isCompleted) return;
+    if (inc.technicianLatitude == null || inc.technicianLongitude == null) return;
+    final ctrl = await _ctrl.future;
+    final techPos = LatLng(inc.technicianLatitude!, inc.technicianLongitude!);
+    final incPos = LatLng(inc.latitude, inc.longitude);
+    final bounds = LatLngBounds(
+      southwest: LatLng(
+        math.min(techPos.latitude, incPos.latitude) - 0.005,
+        math.min(techPos.longitude, incPos.longitude) - 0.005,
+      ),
+      northeast: LatLng(
+        math.max(techPos.latitude, incPos.latitude) + 0.005,
+        math.max(techPos.longitude, incPos.longitude) + 0.005,
+      ),
+    );
+    ctrl.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
+  }
+
+  double _distKm(LatLng a, LatLng b) {
+    const r = 6371.0;
+    double rad(double d) => d * math.pi / 180;
+    final dLat = rad(b.latitude - a.latitude);
+    final dLon = rad(b.longitude - a.longitude);
+    final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(rad(a.latitude)) *
+            math.cos(rad(b.latitude)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    return r * 2 * math.atan2(math.sqrt(h), math.sqrt(1 - h));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inc = _incident;
+    final incPos = LatLng(inc.latitude, inc.longitude);
+    final techPos =
+        inc.technicianLatitude != null && inc.technicianLongitude != null
+        ? LatLng(inc.technicianLatitude!, inc.technicianLongitude!)
+        : null;
+    final hasTech = techPos != null;
+    final km = hasTech ? _distKm(techPos, incPos) : 0.0;
+    final eta = hasTech ? math.max(1, (km / 30 * 60).round()) : 0;
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: techPos ?? incPos,
+              zoom: 14,
+            ),
+            onMapCreated: (ctrl) {
+              if (!_ctrl.isCompleted) {
+                _ctrl.complete(ctrl);
+                _animateCamera(inc);
+              }
+            },
+            markers: {
+              Marker(
+                markerId: const MarkerId('incident'),
+                position: incPos,
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueRed,
+                ),
+                infoWindow: InfoWindow(
+                  title: 'Tu ubicación',
+                  snippet: inc.address ?? 'Ubicación del incidente',
+                ),
+              ),
+              if (hasTech)
+                Marker(
+                  markerId: const MarkerId('technician'),
+                  position: techPos,
+                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                    BitmapDescriptor.hueAzure,
+                  ),
+                  infoWindow: InfoWindow(
+                    title: inc.technicianName ?? 'Técnico',
+                    snippet: 'En camino a tu ubicación',
+                  ),
+                ),
+            },
+            polylines: {
+              if (hasTech)
+                Polyline(
+                  polylineId: const PolylineId('route'),
+                  points: [techPos, incPos],
+                  color: AppColors.primary,
+                  width: 5,
+                ),
+            },
+            myLocationEnabled: false,
+            zoomControlsEnabled: true,
+            mapToolbarEnabled: false,
+          ),
+          // Botón volver
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.arrow_back_rounded, size: 22),
+                ),
+              ),
+            ),
+          ),
+          // Panel inferior con info del técnico
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                MediaQuery.of(context).padding.bottom + 20,
+              ),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 20,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.engineering_rounded,
+                          color: AppColors.primary,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              inc.technicianName ?? 'Técnico asignado',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              hasTech
+                                  ? 'En camino a tu ubicación'
+                                  : 'Ubicación no disponible aún',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            const Text(
+                              'En vivo',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.green,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (hasTech) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        _TrackingStat(
+                          icon: Icons.schedule_rounded,
+                          label: 'ETA',
+                          value: '~$eta min',
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        _TrackingStat(
+                          icon: Icons.route_rounded,
+                          label: 'Distancia',
+                          value: '${km.toStringAsFixed(1)} km',
+                          color: Colors.green,
+                        ),
+                        const SizedBox(width: 10),
+                        _TrackingStat(
+                          icon: Icons.sync_rounded,
+                          label: 'Actualiza',
+                          value: 'c/ 8 seg',
+                          color: Colors.orange,
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrackingStat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _TrackingStat({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: color,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 class _OfferTile extends StatelessWidget {
   final ServiceOffer offer;
