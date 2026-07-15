@@ -77,9 +77,9 @@ Multitenancy = each Workshop is a Tenant (1:1); tenant-scoped tables carry
 | Role | Email | Password |
 |------|-------|----------|
 | Platform admin | admin@rescateya.bo | 12345678* |
-| Workshop | contacto@elpiston.com | 12345678* |
-| Client | carlos.mendez@email.com | 12345678* |
-| Technician | luis.roca@elpiston.com | 12345678* |
+| Workshop | contacto@tallersanlorenzo.bo | 12345678* |
+| Client | luciana.mendez@gmail.com | 12345678* |
+| Technician | wilber.gutierrez@tallersanlorenzo.bo | 12345678* |
 
 ### Auth endpoint
 
