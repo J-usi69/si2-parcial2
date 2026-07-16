@@ -1,0 +1,22 @@
+{
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=827846
+  "recommendations": [
+    // Backend (FastAPI / Python)
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    // Frontend (Angular)
+    "angular.ng-template",
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    // Mobile (Flutter/Dart)
+    "Dart-Code.dart-code",
+    "Dart-Code.flutter",
+    // Docker (backend/Dockerfile, docker-compose.prod.yml)
+    "ms-azuretools.vscode-docker",
+    // GitHub Actions (.github/workflows)
+    "github.vscode-github-actions",
+    "redhat.vscode-yaml",
+    // Cross-cutting
+    "EditorConfig.EditorConfig"
+  ]
+}
