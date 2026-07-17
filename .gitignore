@@ -22,6 +22,10 @@ uploads/audio/*
 .DS_Store
 Thumbs.db
 
+# JVM crash logs (VSCode Java language server, etc.)
+hs_err_pid*.log
+replay_pid*.log
+
 # Node
 node_modules/
 dist/
