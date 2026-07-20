@@ -7,12 +7,12 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:record/record.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/offline/connectivity_service.dart';
-import '../services/offline/outbox_repository.dart';
 import '../services/offline/sync_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
@@ -191,12 +191,45 @@ class _NewEmergencyScreenState extends State<NewEmergencyScreen> {
     return '$minutes:$seconds';
   }
 
+  /// Copia las fotos/audio elegidos a almacenamiento durable de la app (no
+  /// cache/temp) para que sobrevivan hasta que se puedan subir, incluso si
+  /// eso tarda (sin internet) o el SO limpia el cache mientras tanto.
+  Future<({List<String> imagePaths, String? audioPath})> _persistEvidenceForSync(
+    String clientUuid,
+  ) async {
+    if (_images.isEmpty && _audioFile == null) {
+      return (imagePaths: <String>[], audioPath: null);
+    }
+    final docsDir = await getApplicationDocumentsDirectory();
+    final evidenceDir = Directory(p.join(docsDir.path, 'pending_evidence', clientUuid));
+    await evidenceDir.create(recursive: true);
+
+    final imagePaths = <String>[];
+    for (var i = 0; i < _images.length; i++) {
+      final dest = p.join(evidenceDir.path, 'img_$i${p.extension(_images[i].path)}');
+      await _images[i].copy(dest);
+      imagePaths.add(dest);
+    }
+
+    String? audioPath;
+    if (_audioFile != null) {
+      final dest = p.join(evidenceDir.path, 'audio${p.extension(_audioFile!.path)}');
+      await _audioFile!.copy(dest);
+      audioPath = dest;
+    }
+
+    return (imagePaths: imagePaths, audioPath: audioPath);
+  }
+
   Future<void> _sendEmergency() async {
     if (_selectedVehicle == null || _position == null) return;
     setState(() => _loading = true);
 
     final clientUuid = const Uuid().v4();
     try {
+      // 0. Copiar evidencias a almacenamiento durable antes de encolar.
+      final evidence = await _persistEvidenceForSync(clientUuid);
+
       // 1. Persistir SIEMPRE en el outbox local (sobrevive aunque no haya red).
       await SyncService.instance.enqueueEmergency(
         clientUuid: clientUuid,
@@ -204,39 +237,27 @@ class _NewEmergencyScreenState extends State<NewEmergencyScreen> {
         latitude: _position!.latitude,
         longitude: _position!.longitude,
         description: _descCtrl.text.isNotEmpty ? _descCtrl.text : null,
+        imagePaths: evidence.imagePaths,
+        audioPath: evidence.audioPath,
       );
 
-      // 2. Si no hay internet: queda pendiente de sincronizacion.
+      // 2. Si no hay internet: queda pendiente de sincronizacion (incidente + evidencia).
       final online = await ConnectivityService.instance.checkNow();
       if (!online) {
         if (mounted) {
           AppSnackBar.info(context,
-              'Sin conexion: tu emergencia quedo guardada y se enviara automaticamente al recuperar internet.');
+              'Sin conexion: tu emergencia y evidencias quedaron guardadas y se enviaran automaticamente al recuperar internet.');
           Navigator.pop(context, true);
         }
         return;
       }
 
-      // 3. Online: sincronizar (crea el incidente con idempotencia por client_uuid).
-      await SyncService.instance.syncNow();
-
-      // 4. Subir evidencia al incidente ya sincronizado.
-      final items = await OutboxRepository.instance.all();
-      OutboxItem? item;
-      for (final it in items) {
-        if (it.clientUuid == clientUuid) item = it;
-      }
-      if (item?.remoteId != null) {
-        for (final img in _images) {
-          await ApiService.uploadImage(item!.remoteId!, img);
-        }
-        if (_audioFile != null) {
-          await ApiService.uploadAudio(item!.remoteId!, _audioFile!);
-        }
-      }
+      // 3. Online: sincronizar ya (crea el incidente y sube evidencia, con
+      // idempotencia por client_uuid).
+      final synced = await SyncService.instance.syncNow();
 
       if (mounted) {
-        if (item?.remoteId != null) {
+        if (synced > 0) {
           AppSnackBar.success(context, 'Emergencia reportada exitosamente');
         } else {
           AppSnackBar.info(context,

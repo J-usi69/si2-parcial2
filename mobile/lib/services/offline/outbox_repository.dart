@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -17,6 +19,8 @@ class OutboxItem {
   String? lastError;
   int? remoteId; // id real del incidente en el backend tras sincronizar
   final String createdAt;
+  final List<String> imagePaths; // rutas locales durables, pendientes de subir
+  final String? audioPath; // ruta local durable, pendiente de subir
 
   OutboxItem({
     this.id,
@@ -31,6 +35,8 @@ class OutboxItem {
     this.lastError,
     this.remoteId,
     required this.createdAt,
+    this.imagePaths = const [],
+    this.audioPath,
   });
 
   Map<String, dynamic> toMap() => {
@@ -46,6 +52,8 @@ class OutboxItem {
         'last_error': lastError,
         'remote_id': remoteId,
         'created_at': createdAt,
+        'image_paths': jsonEncode(imagePaths),
+        'audio_path': audioPath,
       };
 
   factory OutboxItem.fromMap(Map<String, dynamic> m) => OutboxItem(
@@ -64,6 +72,10 @@ class OutboxItem {
         lastError: m['last_error'] as String?,
         remoteId: m['remote_id'] as int?,
         createdAt: m['created_at'] as String,
+        imagePaths: m['image_paths'] != null
+            ? List<String>.from(jsonDecode(m['image_paths'] as String) as List)
+            : const [],
+        audioPath: m['audio_path'] as String?,
       );
 }
 
@@ -79,7 +91,7 @@ class OutboxRepository {
     final dir = await getDatabasesPath();
     _db = await openDatabase(
       p.join(dir, 'rescateya_offline.db'),
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE outbox_incidents (
@@ -94,9 +106,17 @@ class OutboxRepository {
             retry_count INTEGER NOT NULL DEFAULT 0,
             last_error TEXT,
             remote_id INTEGER,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            image_paths TEXT,
+            audio_path TEXT
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE outbox_incidents ADD COLUMN image_paths TEXT');
+          await db.execute('ALTER TABLE outbox_incidents ADD COLUMN audio_path TEXT');
+        }
       },
     );
     return _db!;
