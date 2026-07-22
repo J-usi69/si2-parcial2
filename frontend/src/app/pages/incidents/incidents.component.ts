@@ -234,7 +234,11 @@ export class IncidentsComponent implements OnInit, OnDestroy {
     this.loadData();
     this.ws.connect();
     this.wsSub = this.ws.notifications$.subscribe((message) => {
-      if (message.type === 'new_incident' || message.type === 'invitation') {
+      if (
+        ['new_incident', 'invitation', 'status_update', 'incident_assigned', 'new_offer', 'offer_accepted'].includes(
+          message.type,
+        )
+      ) {
         this.loadData(false);
       }
     });

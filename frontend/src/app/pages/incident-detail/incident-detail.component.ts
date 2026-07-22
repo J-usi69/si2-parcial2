@@ -471,14 +471,7 @@ export class IncidentDetailComponent implements OnInit, OnDestroy, AfterViewChec
     }
 
     const id = Number(this.route.snapshot.paramMap.get('id'));
-    this.api.getIncident(id).subscribe((inc) => {
-      this.incident = inc;
-      this.cdr.markForCheck();
-      this.loadChat(inc.id);
-      if (inc.status === 'pending' && this.isWorkshop) {
-        this.loadMyOffer(inc.id);
-      }
-    });
+    this.loadIncident(id);
     if (this.isWorkshop) {
       this.api.getTechnicians().subscribe({
         next: (t) => { this.technicians = t; this.cdr.markForCheck(); },
@@ -487,7 +480,8 @@ export class IncidentDetailComponent implements OnInit, OnDestroy, AfterViewChec
     }
 
     this.ws.connect();
-    // Listen for incoming chat messages + live technician tracking via WebSocket
+    // Listen for incoming chat messages, live technician tracking, y cambios
+    // de estado/oferta via WebSocket, para no depender de refrescar la pagina.
     this.wsSub = this.ws.notifications$.subscribe((msg: any) => {
       if (msg.type === 'chat_message' && msg.incident_id === id && msg.sender_id !== this.currentUserId) {
         this.chatMessages.push({
@@ -508,6 +502,23 @@ export class IncidentDetailComponent implements OnInit, OnDestroy, AfterViewChec
           this.incident.technician_longitude = msg.longitude;
         }
         this.updateTechnicianTracking(msg.latitude, msg.longitude);
+      }
+      if (
+        ['status_update', 'incident_assigned', 'new_offer', 'offer_accepted'].includes(msg.type) &&
+        (msg.incident_id === id || msg.incident_id === undefined)
+      ) {
+        this.loadIncident(id);
+      }
+    });
+  }
+
+  private loadIncident(id: number): void {
+    this.api.getIncident(id).subscribe((inc) => {
+      this.incident = inc;
+      this.cdr.markForCheck();
+      this.loadChat(inc.id);
+      if (inc.status === 'pending' && this.isWorkshop) {
+        this.loadMyOffer(inc.id);
       }
     });
   }
